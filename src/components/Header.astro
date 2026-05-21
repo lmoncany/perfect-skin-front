@@ -1,0 +1,161 @@
+---
+import IconX from "@/assets/icons/IconX.svg";
+import IconMoon from "@/assets/icons/IconMoon.svg";
+import IconSearch from "@/assets/icons/IconSearch.svg";
+import IconSunHigh from "@/assets/icons/IconSunHigh.svg";
+import IconMenuDeep from "@/assets/icons/IconMenuDeep.svg";
+import LinkButton from "./LinkButton.astro";
+import { SITE } from "@/config";
+import { NAV } from "@/constants";
+
+const { pathname } = Astro.url;
+const currentPath =
+  pathname.endsWith("/") && pathname !== "/" ? pathname.slice(0, -1) : pathname;
+
+const isActive = (path: string) => {
+  const normalized = path.endsWith("/") ? path.slice(0, -1) : path;
+  if (currentPath === normalized) return true;
+  return currentPath.startsWith(normalized + "/");
+};
+---
+
+<a
+  id="skip-to-content"
+  href="#main-content"
+  class="absolute start-16 -top-full z-50 bg-background px-3 py-2 text-accent backdrop-blur-lg transition-all focus:top-4"
+>
+  Aller au contenu
+</a>
+
+<header
+  id="site-header"
+  class:list={[
+    "sticky top-0 z-40 w-full bg-background/90 backdrop-blur-xl transition-all duration-300",
+    "border-b border-border/30",
+  ]}
+>
+  {/* Top bar: logo centered, icons on sides */}
+  <div class="app-layout">
+    <div class="flex items-center justify-between py-5 sm:py-6">
+      {/* Left: menu toggle (mobile) + theme/search (desktop) */}
+      <div class="flex items-center gap-1 sm:w-1/3">
+        <button
+          id="menu-btn"
+          class="sm:hidden focus-outline p-2 -ml-2"
+          aria-label="Ouvrir le menu"
+          aria-expanded="false"
+          aria-controls="menu-items"
+        >
+          <IconMenuDeep id="menu-icon" class="stroke-foreground" />
+          <IconX id="close-icon" class="hidden stroke-foreground" />
+        </button>
+      </div>
+
+      {/* Center: logo */}
+      <a
+        href="/"
+        class="font-display text-2xl sm:text-3xl leading-none font-semibold tracking-tight text-foreground hover:text-accent transition-colors duration-300"
+      >
+        {SITE.title}
+      </a>
+
+      {/* Right: search + theme */}
+      <div class="flex items-center justify-end gap-1 sm:w-1/3">
+        <LinkButton
+          href="/search/"
+          class:list={[
+            "focus-outline flex p-2 text-foreground/70 hover:text-foreground transition-colors duration-300",
+            { "text-accent": isActive("/search") },
+          ]}
+          title="Rechercher"
+          aria-label="Rechercher"
+        >
+          <IconSearch class="w-[18px] h-[18px] stroke-current" />
+          <span class="sr-only">Rechercher</span>
+        </LinkButton>
+
+        {
+          SITE.lightAndDarkMode && (
+            <button
+              id="theme-btn"
+              class="focus-outline relative p-2 text-foreground/70 hover:text-foreground transition-colors duration-300"
+              title="Basculer clair/sombre"
+              aria-label="Thème"
+              aria-live="polite"
+            >
+              <IconMoon class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[18px] h-[18px] transition-all scale-100 dark:scale-0 dark:opacity-0" />
+              <IconSunHigh class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[18px] h-[18px] transition-all scale-0 dark:scale-100 opacity-0 dark:opacity-100" />
+            </button>
+          )
+        }
+      </div>
+    </div>
+  </div>
+
+  {/* Navigation bar: horizontal category links */}
+  <nav id="nav-menu" class="border-t border-border/20">
+    <div class="app-layout">
+      {/* Desktop nav */}
+      <ul
+        id="menu-items"
+        class:list={[
+          "absolute top-full left-0 right-0 hidden bg-background/98 backdrop-blur-xl border-b border-border/30 flex-col",
+          "sm:relative sm:flex sm:flex-row sm:justify-center sm:bg-transparent sm:border-none sm:backdrop-blur-none sm:gap-0",
+        ]}
+      >
+        {
+          NAV.map(item => (
+            <li>
+              <a
+                href={item.href}
+                class:list={[
+                  "block px-5 py-3 sm:py-2.5 font-accent text-[11px] sm:text-[11px] font-medium tracking-[0.18em] uppercase text-foreground/65 hover:text-foreground transition-colors duration-300",
+                  { "active-nav !text-accent": isActive(item.href) },
+                ]}
+              >
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </nav>
+</header>
+
+<script>
+  function setupHeader() {
+    const menuBtn = document.querySelector("#menu-btn");
+    const menuItems = document.querySelector("#menu-items");
+    const menuIcon = document.querySelector("#menu-icon");
+    const closeIcon = document.querySelector("#close-icon");
+
+    if (!menuBtn || !menuItems || !menuIcon || !closeIcon) return;
+
+    menuBtn.addEventListener("click", () => {
+      const isOpen = menuBtn.getAttribute("aria-expanded") === "true";
+      menuBtn.setAttribute("aria-expanded", isOpen ? "false" : "true");
+      menuBtn.setAttribute(
+        "aria-label",
+        isOpen ? "Ouvrir le menu" : "Fermer le menu"
+      );
+      menuItems.classList.toggle("hidden");
+      menuIcon.classList.toggle("hidden");
+      closeIcon.classList.toggle("hidden");
+    });
+
+    const menuLinks = menuItems.querySelectorAll("a");
+    menuLinks.forEach(link => {
+      link.addEventListener("click", () => {
+        menuBtn.setAttribute("aria-expanded", "false");
+        menuBtn.setAttribute("aria-label", "Ouvrir le menu");
+        menuItems.classList.add("hidden");
+        menuIcon.classList.remove("hidden");
+        closeIcon.classList.add("hidden");
+      });
+    });
+  }
+
+  setupHeader();
+  document.addEventListener("astro:after-swap", setupHeader);
+</script>

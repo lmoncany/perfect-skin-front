@@ -1,0 +1,35 @@
+---
+import type { GetStaticPaths } from "astro";
+import ArchiveLayout from "@/layouts/ArchiveLayout.astro";
+import { getCategories, getPostsByCategory } from "@/lib/content";
+import { SITE } from "@/config";
+
+export const getStaticPaths = (async ({ paginate }) => {
+  const categories = await getCategories();
+  const results = [];
+  for (const cat of categories) {
+    const posts = await getPostsByCategory(cat.slug);
+    const paths = paginate(posts, {
+      params: { cat: cat.slug },
+      pageSize: SITE.postPerPage,
+      props: { categoryName: cat.name, categoryDesc: cat.description },
+    });
+    results.push(...paths);
+  }
+  return results;
+}) satisfies GetStaticPaths;
+
+const { page, categoryName, categoryDesc } = Astro.props;
+
+const title = `${categoryName} — ${SITE.title}`;
+const description =
+  categoryDesc || `Articles beauté et soins de la catégorie ${categoryName}.`;
+---
+
+<ArchiveLayout
+  title={title}
+  description={description}
+  pageTitle={categoryName}
+  intro={categoryDesc}
+  page={page}
+/>

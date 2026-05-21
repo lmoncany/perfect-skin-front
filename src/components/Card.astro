@@ -1,0 +1,97 @@
+---
+import type { Post } from "@/lib/types";
+import { SITE } from "@/config";
+
+type Props = {
+  post: Post;
+  variant?: "h2" | "h3";
+  hero?: boolean;
+};
+
+const { post, variant: Heading = "h2", hero = false } = Astro.props;
+
+const href = `/${post.slug}/`;
+const dateLabel = new Date(post.date).toLocaleDateString("fr-FR", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  timeZone: SITE.timezone,
+});
+const hasImage = !!post.featuredImage?.url;
+const categoryLabel = post.categories[0]?.replace(/-/g, " ").toUpperCase() || "";
+---
+
+<article
+  class:list={[
+    "card-mag group flex flex-col gap-0",
+    hero ? "md:flex-row md:gap-10" : "",
+  ]}
+>
+  {
+    hasImage && (
+      <a
+        href={href}
+        class:list={[
+          "block overflow-hidden bg-muted",
+          hero
+            ? "md:w-3/5 aspect-[4/3] md:aspect-[16/10]"
+            : "aspect-[4/3] mb-5",
+        ]}
+        aria-hidden="true"
+        tabindex="-1"
+      >
+        <img
+          src={post.featuredImage!.url}
+          alt={post.featuredImage!.alt}
+          loading="lazy"
+          decoding="async"
+          width={post.featuredImage!.width}
+          height={post.featuredImage!.height}
+          class="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+        />
+      </a>
+    )
+  }
+
+  <div class:list={["flex flex-1 flex-col justify-center gap-3", hero ? "md:w-2/5 md:py-6" : ""]}>
+    {
+      post.categories[0] && (
+        <a
+          href={`/categorie/${post.categories[0]}/`}
+          class="kicker hover:text-accent/70 transition-colors duration-300"
+        >
+          {categoryLabel}
+        </a>
+      )
+    }
+
+    <a
+      href={href}
+      class="group/link decoration-none focus-visible:no-underline"
+    >
+      <Heading
+        class:list={[
+          "font-display font-semibold leading-tight text-foreground transition-colors duration-300 group-hover/link:text-accent",
+          hero
+            ? "text-2xl md:text-3xl lg:text-4xl"
+            : "text-lg sm:text-xl",
+        ]}
+      >
+        {post.title}
+      </Heading>
+    </a>
+
+    <p class:list={[
+      "line-clamp-3 text-foreground/55 leading-relaxed font-light",
+      hero ? "text-sm sm:text-base" : "text-sm",
+    ]}>
+      {post.excerpt}
+    </p>
+
+    <div class="mt-1 flex items-center gap-3 font-accent text-[11px] tracking-wide text-foreground/40 uppercase">
+      <span>{post.author.name}</span>
+      <span aria-hidden="true" class="text-foreground/20">|</span>
+      <time datetime={post.date}>{dateLabel}</time>
+    </div>
+  </div>
+</article>

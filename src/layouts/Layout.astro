@@ -1,0 +1,119 @@
+---
+import { Font } from "astro:assets";
+import { ClientRouter } from "astro:transitions";
+import SEOHead from "@/components/SEOHead.astro";
+import { SITE } from "@/config";
+import type { SEO } from "@/lib/types";
+import { organizationSchema, websiteSchema } from "@/lib/schemas";
+import "@/styles/global.css";
+
+type Props = {
+  /** Full SEO object from WP (post, category, etc.) */
+  seo?: SEO;
+  /** Fallbacks for pages without full SEO data */
+  title?: string;
+  description?: string;
+  image?: string;
+  type?: "website" | "article";
+  /** Extra JSON-LD blocks added by the page (BreadcrumbList, Article, etc.) */
+  jsonLd?: (string | Record<string, unknown>)[];
+  scrollSmooth?: boolean;
+  /** If true, skip emitting the chrome (for /feed-style fullscreen pages) */
+  fullScreen?: boolean;
+};
+
+const {
+  seo,
+  title,
+  description,
+  image,
+  type = "website",
+  jsonLd,
+  scrollSmooth = false,
+  fullScreen = false,
+} = Astro.props;
+
+const currentUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
+
+// Every page gets Organization + WebSite schemas. Pages may add more.
+const globalJsonLd = [organizationSchema(), websiteSchema()];
+const combinedJsonLd = [...globalJsonLd, ...(jsonLd ?? [])];
+---
+
+<!doctype html>
+<html
+  dir={SITE.dir}
+  lang={SITE.lang}
+  class={`${scrollSmooth && "scroll-smooth"}`}
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+
+    <Font
+      cssVariable="--font-inter"
+      preload={[{ subset: "latin", weight: 400, style: "normal" }]}
+    />
+    <Font
+      cssVariable="--font-display"
+      preload={[{ subset: "latin", weight: 600, style: "normal" }]}
+    />
+    <Font
+      cssVariable="--font-accent"
+      preload={[{ subset: "latin", weight: 400, style: "normal" }]}
+    />
+
+    <SEOHead
+      seo={seo}
+      title={title}
+      description={description}
+      image={image}
+      type={type}
+      url={currentUrl}
+      jsonLd={combinedJsonLd}
+    />
+
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={SITE.title}
+      href={new URL("rss.xml", Astro.site)}
+    />
+    <!-- LLM-readable surfaces, per llmstxt.org -->
+    <link rel="alternate" type="text/plain" title="LLM index" href="/llms.txt" />
+    <meta name="theme-color" content="#d466c4" />
+    <meta name="apple-mobile-web-app-title" content={SITE.title} />
+    <meta name="application-name" content={SITE.title} />
+
+    <ClientRouter />
+
+    <!-- Theme boot: avoid FOUC -->
+    <script is:inline>
+      (function () {
+        const currentTheme = localStorage.getItem("theme");
+        function getPreferTheme() {
+          if (currentTheme) return currentTheme;
+          return window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light";
+        }
+        const themeValue = getPreferTheme();
+        document.firstElementChild?.setAttribute("data-theme", themeValue);
+        window.theme = {
+          themeValue: themeValue,
+          getTheme: () => window.theme.themeValue,
+          setTheme: val => {
+            window.theme.themeValue = val;
+          },
+        };
+      })();
+    </script>
+  </head>
+  <body class:list={[fullScreen && "overflow-hidden"]}>
+    <slot />
+    <script src="../scripts/theme.ts"></script>
+  </body>
+</html>

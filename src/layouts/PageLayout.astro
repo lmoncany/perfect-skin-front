@@ -1,0 +1,51 @@
+---
+/**
+ * PageLayout — renders WP Pages (about, contact, legal). Intentionally
+ * simpler than ArticleLayout: no date/author/share buttons, narrower
+ * column, no affiliate scaffolding.
+ */
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import Breadcrumb from "@/components/Breadcrumb.astro";
+import { SITE } from "@/config";
+import type { Page } from "@/lib/types";
+
+type Props = {
+  page: Page;
+};
+
+const { page } = Astro.props;
+
+const modified = page.modified
+  ? new Date(page.modified).toLocaleDateString("fr-FR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      timeZone: SITE.timezone,
+    })
+  : null;
+---
+
+<Layout seo={page.seo} type="website">
+  <Header />
+  <Breadcrumb />
+  <main id="main-content" class="app-layout pb-12">
+    <article class="mx-auto max-w-prose-article">
+      <header class="mb-10 pt-4">
+        <h1 class="display-lg">
+          {page.title}
+        </h1>
+        {
+          modified && (
+            <p class="mt-3 font-accent text-[11px] tracking-wide text-foreground/35 uppercase">
+              Dernière mise à jour : {modified}
+            </p>
+          )
+        }
+      </header>
+      <div class="app-prose prose prose-lg" set:html={page.content} />
+    </article>
+  </main>
+  <Footer />
+</Layout>

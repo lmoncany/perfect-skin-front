@@ -1,0 +1,9 @@
+---
+import PageLayout from "@/layouts/PageLayout.astro";
+import { getPageBySlug } from "@/lib/content";
+
+const page = await getPageBySlug("contact");
+if (!page) return Astro.redirect("/404");
+---
+
+<PageLayout page={page} />

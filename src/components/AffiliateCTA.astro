@@ -1,0 +1,93 @@
+---
+/**
+ * AffiliateCTA — single source of truth for every affiliate link on the site.
+ *
+ * - Always routes through /api/click for first-party tracking
+ * - Always sets rel="sponsored nofollow" (Google compliance)
+ * - Always opens in a new tab so readers don't lose their place
+ * - Optionally shows a French disclosure label inline or relies on the
+ *   page-level disclosure banner
+ */
+import { MERCHANT_LABELS } from "@/config";
+import type { AffiliateMerchant } from "@/lib/types";
+
+interface Props {
+  /** Destination URL (the actual merchant / affiliate network URL) */
+  href: string;
+  /** Merchant identifier — drives the default label and tracking attribution */
+  merchant: AffiliateMerchant;
+  /** Product or brand identifier — used for analytics, keep it slug-safe */
+  productId?: string;
+  /** Slug of the post the CTA is rendered on — for attribution */
+  postSlug?: string;
+  /** Override the default merchant label */
+  label?: string;
+  /** Price to show alongside the CTA */
+  price?: string;
+  /** Show a small inline disclosure next to the button */
+  showInlineDisclosure?: boolean;
+  /** Visual variant */
+  variant?: "primary" | "secondary";
+}
+
+const {
+  href,
+  merchant,
+  productId,
+  postSlug,
+  label,
+  price,
+  showInlineDisclosure = false,
+  variant = "primary",
+} = Astro.props;
+
+// Build the click-tracking URL. The endpoint validates & redirects.
+const params = new URLSearchParams({
+  u: href,
+  m: merchant,
+});
+if (productId) params.set("p", productId);
+if (postSlug) params.set("s", postSlug);
+const trackingHref = `/api/click?${params.toString()}`;
+
+const displayLabel = label ?? MERCHANT_LABELS[merchant] ?? "Voir le produit";
+---
+
+<div class:list={["affiliate-cta-wrap inline-flex flex-col items-start gap-1"]}>
+  <a
+    href={trackingHref}
+    target="_blank"
+    rel="sponsored nofollow noopener"
+    data-affiliate="true"
+    data-merchant={merchant}
+    data-product={productId}
+    class:list={[
+      "inline-flex items-center gap-2 px-6 py-2.5 font-accent text-[11px] font-medium tracking-[0.15em] uppercase transition-all duration-300",
+      variant === "primary" &&
+        "bg-foreground text-background hover:bg-accent",
+      variant === "secondary" &&
+        "border border-foreground/20 text-foreground hover:border-accent hover:text-accent",
+    ]}
+  >
+    <span>{displayLabel}</span>
+    {price && <span class="opacity-80">· {price}</span>}
+    <svg
+      aria-hidden="true"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path d="M7 17 17 7M8 7h9v9"></path>
+    </svg>
+  </a>
+  {
+    showInlineDisclosure && (
+      <span class="text-xs text-foreground/60">Lien affilié</span>
+    )
+  }
+</div>

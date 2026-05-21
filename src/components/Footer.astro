@@ -1,0 +1,64 @@
+---
+import type { HTMLAttributes } from "astro/types";
+import Socials from "./Socials.astro";
+import { SITE } from "@/config";
+
+const currentYear = new Date().getFullYear();
+
+type Props = {
+  noMarginTop?: boolean;
+} & HTMLAttributes<"footer">;
+
+const { noMarginTop = false, class: className, ...attrs } = Astro.props;
+---
+
+<footer
+  class:list={["app-layout", { "mt-auto": !noMarginTop }, className]}
+  {...attrs}
+>
+  <div class="border-t border-border/30 pt-16 pb-12">
+    {/* Brand + navigation grid */}
+    <div class="grid gap-12 md:grid-cols-3 mb-14">
+      {/* Brand */}
+      <div class="space-y-4">
+        <a
+          href="/"
+          class="inline-block font-display text-2xl font-semibold text-foreground hover:text-accent transition-colors duration-300"
+        >
+          {SITE.title}
+        </a>
+        <p class="text-sm text-foreground/50 leading-relaxed max-w-xs font-light">
+          {SITE.desc}
+        </p>
+      </div>
+
+      {/* Quick links */}
+      <nav class="space-y-3">
+        <p class="font-accent text-[11px] font-medium tracking-[0.15em] text-foreground/40 uppercase">Explorer</p>
+        <ul class="space-y-2">
+          <li><a href="/categorie/beaute/" class="text-sm text-foreground/60 hover:text-foreground transition-colors duration-300">Beauté</a></li>
+          <li><a href="/categorie/bien-etre/" class="text-sm text-foreground/60 hover:text-foreground transition-colors duration-300">Bien-être</a></li>
+          <li><a href="/categorie/tendances/" class="text-sm text-foreground/60 hover:text-foreground transition-colors duration-300">Tendances</a></li>
+          <li><a href="/categorie/top-marques/" class="text-sm text-foreground/60 hover:text-foreground transition-colors duration-300">Top Marques</a></li>
+        </ul>
+      </nav>
+
+      {/* Socials */}
+      <div class="space-y-3">
+        <p class="font-accent text-[11px] font-medium tracking-[0.15em] text-foreground/40 uppercase">Suivez-nous</p>
+        <Socials />
+      </div>
+    </div>
+
+    {/* Bottom bar */}
+    <div class="border-t border-border/20 pt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between text-xs text-foreground/40 font-light">
+      <span>© {currentYear} {SITE.title}. Tous droits réservés.</span>
+      <nav class="flex flex-wrap gap-6">
+        <a href="/a-propos/" class="hover:text-foreground/70 transition-colors duration-300">À propos</a>
+        <a href="/mentions-legales/" class="hover:text-foreground/70 transition-colors duration-300">Mentions légales</a>
+        <a href="/politique-confidentialite/" class="hover:text-foreground/70 transition-colors duration-300">Confidentialité</a>
+        <a href="/contact/" class="hover:text-foreground/70 transition-colors duration-300">Contact</a>
+      </nav>
+    </div>
+  </div>
+</footer>

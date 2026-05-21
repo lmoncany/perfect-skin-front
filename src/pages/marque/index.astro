@@ -1,0 +1,45 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import Breadcrumb from "@/components/Breadcrumb.astro";
+import { getBrands } from "@/lib/content";
+import { SITE } from "@/config";
+
+const brands = await getBrands();
+---
+
+<Layout
+  title={`Marques beauté — ${SITE.title}`}
+  description="Toutes les marques de soins cosmétiques et beauté présentées sur Perfect Skin."
+>
+  <Header />
+  <Breadcrumb />
+  <main id="main-content" class="app-layout pb-12">
+    <header class="mt-4 mb-8">
+      <h1 class="font-serif text-3xl font-bold text-foreground sm:text-4xl">
+        Marques beauté
+      </h1>
+      <p class="mt-3 max-w-2xl text-foreground/75">
+        Retrouvez les marques que nous testons, comparons et recommandons —
+        des références françaises aux pépites internationales.
+      </p>
+    </header>
+    <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        brands.map(b => (
+          <li>
+            <a
+              href={`/marque/${b.slug}/`}
+              class="block rounded-xl border border-border bg-card p-5 transition hover:border-accent hover:shadow-md"
+            >
+              <h2 class="font-serif text-lg font-bold">{b.name}</h2>
+              <p class="mt-1 text-sm text-foreground/70">{b.description}</p>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </main>
+  <Footer />
+</Layout>

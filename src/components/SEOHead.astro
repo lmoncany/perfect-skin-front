@@ -1,0 +1,86 @@
+---
+/**
+ * SEOHead — renders the exact meta tags Rank Math would produce on the
+ * native WP theme. Expects the `seo` field shape from wp-graphql-rank-math
+ * (or our mock equivalent) to be passed in.
+ *
+ * Place this inside <head>. Do not duplicate with <title> or <meta
+ * description> in the parent layout — this component owns both.
+ */
+import type { SEO } from "@/lib/types";
+import { SITE } from "@/config";
+
+interface Props {
+  seo?: SEO;
+  /** Fallback values used when no SEO is provided (homepage, archives, etc.) */
+  title?: string;
+  description?: string;
+  url: string | URL;
+  image?: string;
+  type?: "website" | "article";
+  /** Additional JSON-LD blocks to inject (e.g., BreadcrumbList) */
+  jsonLd?: (string | Record<string, unknown>)[];
+}
+
+const {
+  seo,
+  title: fallbackTitle,
+  description: fallbackDescription,
+  url,
+  image,
+  type = "website",
+  jsonLd = [],
+} = Astro.props;
+
+const resolvedUrl = typeof url === "string" ? url : url.href;
+const title = seo?.title ?? fallbackTitle ?? SITE.title;
+const description = seo?.description ?? fallbackDescription ?? SITE.desc;
+const canonical = seo?.canonicalUrl ?? resolvedUrl;
+const ogTitle = seo?.openGraph?.title ?? title;
+const ogDescription = seo?.openGraph?.description ?? description;
+const ogImage = seo?.openGraph?.image ?? image;
+const ogType = seo?.openGraph?.type ?? type;
+const robots = seo?.robots ?? "index, follow, max-image-preview:large";
+
+// Combine Rank Math's own JSON-LD with any additional blocks passed in.
+const combinedJsonLd: (string | Record<string, unknown>)[] = [];
+if (seo?.jsonLd) combinedJsonLd.push(seo.jsonLd);
+combinedJsonLd.push(...jsonLd);
+
+const serializedJsonLd = combinedJsonLd
+  .map(block => (typeof block === "string" ? block : JSON.stringify(block)))
+  .filter(Boolean);
+---
+
+<title>{title}</title>
+<meta name="description" content={description} />
+<meta name="robots" content={robots} />
+<link rel="canonical" href={canonical} />
+
+<meta property="og:type" content={ogType} />
+<meta property="og:site_name" content={SITE.title} />
+<meta property="og:title" content={ogTitle} />
+<meta property="og:description" content={ogDescription} />
+<meta property="og:url" content={canonical} />
+{ogImage && <meta property="og:image" content={ogImage} />}
+<meta property="og:locale" content="fr_FR" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={ogTitle} />
+<meta name="twitter:description" content={ogDescription} />
+{ogImage && <meta name="twitter:image" content={ogImage} />}
+
+{
+  serializedJsonLd.map(block => (
+    <script is:inline type="application/ld+json" set:html={block} />
+  ))
+}
+
+{
+  import.meta.env.PUBLIC_GOOGLE_SITE_VERIFICATION && (
+    <meta
+      name="google-site-verification"
+      content={import.meta.env.PUBLIC_GOOGLE_SITE_VERIFICATION}
+    />
+  )
+}

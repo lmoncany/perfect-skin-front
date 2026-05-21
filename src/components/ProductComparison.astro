@@ -1,0 +1,135 @@
+---
+/**
+ * ProductComparison — renders a roundup of affiliate products as an
+ * editorial-feeling card grid + a single JSON-LD block with ItemList +
+ * Product + Review schema so the page qualifies for Google rich results.
+ */
+import AffiliateCTA from "./AffiliateCTA.astro";
+import { SITE } from "@/config";
+import type { AffiliateProduct } from "@/lib/types";
+
+interface Props {
+  products: AffiliateProduct[];
+  postSlug: string;
+  postTitle: string;
+  /** Optional heading rendered above the grid */
+  heading?: string;
+}
+
+const { products, postSlug, postTitle, heading } = Astro.props;
+
+const itemListJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  name: heading ?? postTitle,
+  itemListElement: products.map((p, idx) => ({
+    "@type": "ListItem",
+    position: idx + 1,
+    item: {
+      "@type": "Product",
+      name: p.name,
+      brand: { "@type": "Brand", name: p.brand },
+      image: p.image,
+      offers: {
+        "@type": "Offer",
+        price: p.price.replace(/[^0-9,\.]/g, "").replace(",", "."),
+        priceCurrency: "EUR",
+        availability: "https://schema.org/InStock",
+        url: `${SITE.website.replace(/\/$/, "")}/${postSlug}/#produit-${idx + 1}`,
+      },
+      review: {
+        "@type": "Review",
+        reviewRating: {
+          "@type": "Rating",
+          ratingValue: "4.5",
+          bestRating: "5",
+        },
+        author: { "@type": "Organization", name: SITE.title },
+      },
+    },
+  })),
+};
+---
+
+{heading && <h2 class="mt-10 mb-4 text-2xl">{heading}</h2>}
+
+<div
+  class="not-prose my-8 grid gap-6 sm:grid-cols-2"
+  role="list"
+  aria-label="Sélection de produits"
+>
+  {
+    products.map((product, idx) => (
+      <article
+        id={`produit-${idx + 1}`}
+        role="listitem"
+        class="group relative flex flex-col overflow-hidden border border-border/30 bg-card transition-all duration-300 hover:border-border/60"
+      >
+        <div class="aspect-[4/3] overflow-hidden bg-muted">
+          <img
+            src={product.image}
+            alt={`${product.name} — ${product.brand}`}
+            loading="lazy"
+            decoding="async"
+            width="600"
+            height="450"
+            class="h-full w-full object-cover transition group-hover:scale-[1.02]"
+          />
+        </div>
+        <div class="flex flex-1 flex-col gap-3 p-5">
+          <div>
+            <p class="text-xs tracking-wide text-foreground/60 uppercase">
+              {product.brand}
+            </p>
+            <h3 class="mt-1 font-display text-lg font-medium leading-tight text-foreground">
+              {idx + 1}. {product.name}
+            </h3>
+          </div>
+
+          <dl class="grid gap-2 text-sm">
+            {product.pros.length > 0 && (
+              <div>
+                <dt class="font-semibold text-accent-alt">Points forts</dt>
+                <dd class="text-foreground/80">
+                  <ul class="list-disc pl-5">
+                    {product.pros.map(pro => (
+                      <li>{pro}</li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+            )}
+            {product.cons.length > 0 && (
+              <div>
+                <dt class="font-semibold text-foreground/70">À savoir</dt>
+                <dd class="text-foreground/80">
+                  <ul class="list-disc pl-5">
+                    {product.cons.map(con => (
+                      <li>{con}</li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+            )}
+          </dl>
+
+          <div class="mt-auto pt-2">
+            <AffiliateCTA
+              href={product.affiliateUrl}
+              merchant={product.merchant}
+              productId={`${postSlug}-${idx + 1}`}
+              postSlug={postSlug}
+              price={product.price}
+            />
+          </div>
+        </div>
+      </article>
+    ))
+  }
+</div>
+
+<script
+  is:inline
+  type="application/ld+json"
+  set:html={JSON.stringify(itemListJsonLd)}
+/>

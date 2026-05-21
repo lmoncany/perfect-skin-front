@@ -1,0 +1,54 @@
+---
+const currentUrlPath = Astro.url.pathname.replace(/\/+$/, "");
+const segments = currentUrlPath.split("/").filter(Boolean);
+
+const SEGMENT_LABELS: Record<string, string> = {
+  categorie: "Catégories",
+  tag: "Mots-clés",
+  marque: "Marques",
+  search: "Recherche",
+  page: "Page",
+};
+
+type Crumb = { label: string; href?: string };
+const crumbs: Crumb[] = [];
+let accum = "";
+for (let i = 0; i < segments.length; i++) {
+  const seg = segments[i];
+  accum += `/${seg}`;
+  const label =
+    SEGMENT_LABELS[seg] ??
+    decodeURIComponent(seg).replace(/-/g, " ");
+  const isLast = i === segments.length - 1;
+  crumbs.push(isLast ? { label } : { label, href: `${accum}/` });
+}
+---
+
+<nav class="app-layout mt-6 mb-1" aria-label="Fil d'Ariane">
+  <ol
+    class="font-accent text-[11px] tracking-wide text-foreground/35 uppercase [&>li]:inline"
+  >
+    <li>
+      <a href="/" class="hover:text-foreground/60 transition-colors duration-300">Accueil</a>
+      <span aria-hidden="true" class="mx-1.5 text-foreground/15">/</span>
+    </li>
+    {
+      crumbs.map((c, i) =>
+        i === crumbs.length - 1 ? (
+          <li>
+            <span class="text-foreground/50" aria-current="page">
+              {c.label}
+            </span>
+          </li>
+        ) : (
+          <li>
+            <a href={c.href} class="hover:text-foreground/60 transition-colors duration-300">
+              {c.label}
+            </a>
+            <span aria-hidden="true" class="mx-1.5 text-foreground/15">/</span>
+          </li>
+        )
+      )
+    }
+  </ol>
+</nav>

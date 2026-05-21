@@ -1,0 +1,153 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import Breadcrumb from "@/components/Breadcrumb.astro";
+import Pagination from "@/components/Pagination.astro";
+import type { Page } from "astro";
+import type { Post } from "@/lib/types";
+
+type Props = {
+  title: string;
+  description?: string;
+  pageTitle: string;
+  intro?: string;
+  page: Page<Post>;
+};
+
+const { title, description, pageTitle, intro, page } = Astro.props;
+const firstPost = page.data[0];
+const restPosts = page.data.slice(1);
+---
+
+<Layout title={title} description={description} type="website">
+  <Header />
+  <Breadcrumb />
+  <main id="main-content" class="app-layout pb-16">
+    {/* Page header */}
+    <header class="mt-10 mb-14">
+      <p class="kicker mb-3">Catégorie</p>
+      <h1 class="display-lg mb-5">{pageTitle}</h1>
+      {intro && (
+        <p class="max-w-xl text-base sm:text-lg text-foreground/50 leading-relaxed font-light">
+          {intro}
+        </p>
+      )}
+    </header>
+
+    {
+      page.data.length > 0 ? (
+        <>
+          {/* Featured first post */}
+          {firstPost && (
+            <article class="mb-16 pb-16 border-b border-border/25">
+              <div class="md:grid md:grid-cols-5 md:gap-10">
+                {firstPost.featuredImage?.url && (
+                  <div class="md:col-span-3 mb-6 md:mb-0">
+                    <a
+                      href={`/${firstPost.slug}/`}
+                      class="block overflow-hidden aspect-[16/10] group"
+                    >
+                      <img
+                        src={firstPost.featuredImage.url}
+                        alt={firstPost.featuredImage.alt}
+                        loading="lazy"
+                        decoding="async"
+                        class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                      />
+                    </a>
+                  </div>
+                )}
+
+                <div class="md:col-span-2 flex flex-col justify-center">
+                  {firstPost.categories[0] && (
+                    <p class="kicker mb-3">
+                      {firstPost.categories[0].replace(/-/g, " ")}
+                    </p>
+                  )}
+                  <a href={`/${firstPost.slug}/`} class="group">
+                    <h2 class="display-md mb-4 group-hover:text-accent transition-colors duration-300">
+                      {firstPost.title}
+                    </h2>
+                  </a>
+                  <p class="text-base text-foreground/50 leading-relaxed mb-5 line-clamp-3 font-light">
+                    {firstPost.excerpt}
+                  </p>
+                  <div class="font-accent text-[11px] tracking-wide text-foreground/35 uppercase">
+                    <span>{firstPost.author.name}</span>
+                    <span class="mx-2 text-foreground/15">|</span>
+                    <time datetime={firstPost.date}>
+                      {new Date(firstPost.date).toLocaleDateString("fr-FR", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </time>
+                  </div>
+                </div>
+              </div>
+            </article>
+          )}
+
+          {/* Grid of remaining posts */}
+          {restPosts.length > 0 && (
+            <div class="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
+              {restPosts.map(post => (
+                <article class="group flex flex-col">
+                  {post.featuredImage?.url && (
+                    <a
+                      href={`/${post.slug}/`}
+                      class="block overflow-hidden mb-5 aspect-[4/5]"
+                    >
+                      <img
+                        src={post.featuredImage.url}
+                        alt={post.featuredImage.alt}
+                        loading="lazy"
+                        decoding="async"
+                        class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                      />
+                    </a>
+                  )}
+
+                  {post.categories[0] && (
+                    <p class="kicker mb-2">
+                      {post.categories[0].replace(/-/g, " ")}
+                    </p>
+                  )}
+
+                  <a href={`/${post.slug}/`} class="group/link">
+                    <h3 class="font-display text-lg font-medium text-foreground group-hover/link:text-accent transition-colors duration-300 leading-snug mb-2">
+                      {post.title}
+                    </h3>
+                  </a>
+
+                  <p class="text-sm text-foreground/45 leading-relaxed mb-3 line-clamp-2 flex-grow font-light">
+                    {post.excerpt}
+                  </p>
+
+                  <div class="font-accent text-[11px] tracking-wide text-foreground/35 uppercase">
+                    <span>{post.author.name}</span>
+                    <span class="mx-2 text-foreground/15">|</span>
+                    <time datetime={post.date}>
+                      {new Date(post.date).toLocaleDateString("fr-FR", {
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </time>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <p class="py-20 text-center text-foreground/40 text-base font-light">
+          Aucun article pour le moment. Revenez bientôt.
+        </p>
+      )
+    }
+
+    <Pagination page={page} />
+  </main>
+  <Footer />
+</Layout>

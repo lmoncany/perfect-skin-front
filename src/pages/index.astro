@@ -1,0 +1,172 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import Card from "@/components/Card.astro";
+import LinkButton from "@/components/LinkButton.astro";
+import IconArrowRight from "@/assets/icons/IconArrowRight.svg";
+import { SITE } from "@/config";
+import { NAV } from "@/constants";
+import { getAllPosts, getCategories } from "@/lib/content";
+
+const posts = await getAllPosts();
+const categories = await getCategories();
+
+const hero = posts[0];
+const nextFeatured = posts.slice(1, 3);
+
+const categoryTop: Record<string, typeof posts> = {};
+for (const cat of categories) {
+  categoryTop[cat.slug] = posts
+    .filter(p => p.categories.includes(cat.slug))
+    .slice(0, 4);
+}
+
+const homeSeoDescription = SITE.desc;
+---
+
+<Layout
+  title={`${SITE.title} — Magazine beauté, soins et bien-être`}
+  description={homeSeoDescription}
+  type="website"
+>
+  <Header />
+
+  <main id="main-content" class="pb-20">
+    {/* Hero Section */}
+    <section class="app-layout pt-16 sm:pt-20 pb-16">
+      <div class="max-w-2xl">
+        <p class="kicker mb-4">Le magazine beauté</p>
+        <h1 class="display-lg mb-6">Votre rituel beauté,<br />décodé.</h1>
+        <p class="text-base sm:text-lg text-foreground/50 leading-relaxed font-light max-w-lg">
+          Guides experts, avis honnêtes et comparatifs pour choisir vos soins
+          cosmétiques en toute confiance.
+        </p>
+      </div>
+    </section>
+
+    {/* Featured Article: full-bleed hero */}
+    {
+      hero && (
+        <section class="app-layout pb-20">
+          <Card post={hero} hero />
+
+          {/* Secondary featured: 2-column grid */}
+          {nextFeatured.length > 0 && (
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 mt-12">
+              {nextFeatured.map(p => (
+                <article class="group flex flex-col">
+                  {p.featuredImage?.url && (
+                    <a
+                      href={`/${p.slug}/`}
+                      class="block overflow-hidden mb-5 aspect-[4/3]"
+                    >
+                      <img
+                        src={p.featuredImage.url}
+                        alt={p.featuredImage.alt}
+                        loading="lazy"
+                        decoding="async"
+                        class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                      />
+                    </a>
+                  )}
+                  {p.categories[0] && (
+                    <p class="kicker mb-2">
+                      {p.categories[0].replace(/-/g, " ")}
+                    </p>
+                  )}
+                  <a href={`/${p.slug}/`} class="group/link">
+                    <h3 class="font-display text-xl font-semibold text-foreground group-hover/link:text-accent transition-colors duration-300 leading-tight">
+                      {p.title}
+                    </h3>
+                  </a>
+                  <p class="mt-2 text-sm text-foreground/50 line-clamp-2 font-light">
+                    {p.excerpt}
+                  </p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )
+    }
+
+    {/* Category Sections */}
+    {
+      categories.slice(0, 3).map(cat => {
+        const list = categoryTop[cat.slug] ?? [];
+        if (list.length === 0) return null;
+        return (
+          <section class="app-layout py-16 border-t border-border/25">
+            <div class="mb-10 flex items-end justify-between">
+              <div>
+                <p class="kicker mb-2">{cat.name}</p>
+                <h2 class="display-md">{cat.name}</h2>
+              </div>
+              <a
+                href={`/categorie/${cat.slug}/`}
+                class="hidden sm:flex items-center gap-2 font-accent text-[11px] tracking-[0.15em] uppercase text-foreground/40 hover:text-foreground transition-colors duration-300"
+              >
+                Tout voir
+                <span aria-hidden="true" class="text-lg leading-none">→</span>
+              </a>
+            </div>
+
+            <div class="grid gap-8 sm:gap-10 sm:grid-cols-2 lg:grid-cols-4">
+              {list.slice(0, 4).map(p => (
+                <article class="group flex flex-col">
+                  {p.featuredImage?.url && (
+                    <a
+                      href={`/${p.slug}/`}
+                      class="block overflow-hidden mb-4 aspect-[4/5]"
+                    >
+                      <img
+                        src={p.featuredImage.url}
+                        alt={p.featuredImage.alt}
+                        loading="lazy"
+                        decoding="async"
+                        class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                      />
+                    </a>
+                  )}
+
+                  <a href={`/${p.slug}/`} class="group/link">
+                    <h3 class="font-display text-base font-medium text-foreground group-hover/link:text-accent transition-colors duration-300 leading-snug mb-2">
+                      {p.title}
+                    </h3>
+                  </a>
+
+                  <p class="text-sm text-foreground/45 leading-relaxed line-clamp-2 font-light">
+                    {p.excerpt}
+                  </p>
+                </article>
+              ))}
+            </div>
+
+            {/* Mobile "see all" link */}
+            <a
+              href={`/categorie/${cat.slug}/`}
+              class="sm:hidden mt-8 flex items-center gap-2 font-accent text-[11px] tracking-[0.15em] uppercase text-foreground/40 hover:text-foreground transition-colors duration-300"
+            >
+              Tout voir
+              <span aria-hidden="true" class="text-lg leading-none">→</span>
+            </a>
+          </section>
+        );
+      })
+    }
+
+    {/* CTA */}
+    <div class="my-16 flex justify-center">
+      <LinkButton
+        href={NAV[0].href}
+        class="inline-flex items-center gap-3 border border-foreground/15 px-8 py-3.5 font-accent text-[11px] font-medium tracking-[0.18em] uppercase text-foreground hover:bg-foreground hover:text-background transition-all duration-300"
+      >
+        Explorer tous les articles
+        <IconArrowRight class="w-3.5 h-3.5 inline-block" />
+      </LinkButton>
+    </div>
+  </main>
+
+  <Footer />
+</Layout>

@@ -1,0 +1,224 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import Breadcrumb from "@/components/Breadcrumb.astro";
+import Tag from "@/components/Tag.astro";
+import ShareLinks from "@/components/ShareLinks.astro";
+import BackToTopButton from "@/components/BackToTopButton.astro";
+import Card from "@/components/Card.astro";
+import TableOfContents from "@/components/TableOfContents.astro";
+import { SITE } from "@/config";
+import type { Post } from "@/lib/types";
+import { readingTime } from "@/lib/reading-time";
+import { extractToc } from "@/lib/toc";
+import { articleSchema, breadcrumbSchema } from "@/lib/schemas";
+
+type Props = {
+  post: Post;
+  related: Post[];
+};
+
+const { post, related } = Astro.props;
+
+const dateLabel = new Date(post.date).toLocaleDateString("fr-FR", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  timeZone: SITE.timezone,
+});
+
+const modifiedLabel =
+  post.modified && post.modified !== post.date
+    ? new Date(post.modified).toLocaleDateString("fr-FR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        timeZone: SITE.timezone,
+      })
+    : null;
+
+const rt = readingTime(post.content);
+const { toc, html: contentWithIds } = extractToc(post.content);
+
+const dropCappedContent = contentWithIds.replace(
+  /<p(\s[^>]*)?>/i,
+  (_, attrs) => {
+    const existing = /class=["']([^"']*)["']/.exec(attrs ?? "");
+    if (existing) {
+      return `<p${(attrs ?? "").replace(
+        /class=["'][^"']*["']/,
+        `class="${existing[1]} drop-cap"`
+      )}>`;
+    }
+    return `<p${attrs ?? ""} class="drop-cap">`;
+  }
+);
+
+const crumbs = [
+  { name: "Accueil", item: SITE.website },
+  ...(post.categories[0]
+    ? [
+        {
+          name: post.categories[0].replace(/-/g, " "),
+          item: `${SITE.website.replace(/\/$/, "")}/categorie/${post.categories[0]}/`,
+        },
+      ]
+    : []),
+  { name: post.title, item: post.seo.canonicalUrl },
+];
+
+const jsonLd = [
+  breadcrumbSchema(crumbs),
+  articleSchema(post, rt.words, rt.minutes),
+];
+---
+
+<Layout
+  seo={post.seo}
+  type="article"
+  image={post.featuredImage?.url}
+  jsonLd={jsonLd}
+  scrollSmooth
+>
+  <Header />
+  <Breadcrumb />
+
+  <main id="main-content" class="app-layout pb-20" data-pagefind-body>
+    <article class="mx-auto max-w-prose-article">
+      <header class="mb-10 pt-4">
+        {
+          post.categories[0] && (
+            <div class="flex items-center gap-3 mb-5">
+              <a
+                href={`/categorie/${post.categories[0]}/`}
+                class="kicker hover:text-accent/70 transition-colors duration-300"
+              >
+                {post.categories[0].replace(/-/g, " ")}
+              </a>
+              <span class="text-foreground/20">|</span>
+              <span class="font-accent text-[11px] tracking-wide text-foreground/35 uppercase">{rt.label}</span>
+            </div>
+          )
+        }
+        <h1 class="display-lg mb-6">
+          {post.title}
+        </h1>
+        <p class="font-accent text-lg leading-relaxed text-foreground/55 sm:text-xl font-light italic">
+          {post.excerpt}
+        </p>
+        <div class="byline mt-8 flex flex-wrap items-center gap-3">
+          <span>
+            Par{" "}
+            <a
+              href={`/auteur/${post.author.slug}/`}
+              rel="author"
+              class="font-medium text-foreground/70 hover:text-accent transition-colors duration-300"
+            >
+              {post.author.name}
+            </a>
+          </span>
+          <span aria-hidden="true" class="text-foreground/20">|</span>
+          <time datetime={post.date}>Publié le {dateLabel}</time>
+          {
+            modifiedLabel && (
+              <>
+                <span aria-hidden="true" class="text-foreground/20">|</span>
+                <span>Mis à jour le {modifiedLabel}</span>
+              </>
+            )
+          }
+        </div>
+      </header>
+
+      {
+        post.featuredImage && (
+          <figure class="my-10 -mx-4 overflow-hidden sm:mx-0">
+            <img
+              src={post.featuredImage.url}
+              alt={post.featuredImage.alt}
+              width={post.featuredImage.width}
+              height={post.featuredImage.height}
+              loading="eager"
+              decoding="async"
+              class="w-full"
+            />
+            {post.featuredImage.alt && (
+              <figcaption class="mt-3 font-accent text-xs text-foreground/40 italic tracking-wide">
+                {post.featuredImage.alt}
+              </figcaption>
+            )}
+          </figure>
+        )
+      }
+
+      <TableOfContents items={toc} minItems={3} />
+
+      <div
+        class="app-prose prose prose-lg mx-auto max-w-none"
+        itemprop="articleBody"
+        set:html={dropCappedContent}
+      />
+
+      {
+        post.tags.length > 0 && (
+          <>
+            <div class="divider-hair" />
+            <div class="mt-4">
+              <p class="kicker mb-4 text-foreground/35">Étiquettes</p>
+              <ul class="flex flex-wrap gap-2">
+                {post.tags.map(tag => (
+                  <Tag tag={tag} tagName={tag.replace(/-/g, " ")} size="sm" />
+                ))}
+              </ul>
+            </div>
+          </>
+        )
+      }
+
+      <div class="divider-hair" />
+
+      <ShareLinks />
+      <BackToTopButton />
+    </article>
+
+    {
+      related.length > 0 && (
+        <section class="mt-24 border-t border-border/25 pt-14" data-pagefind-ignore>
+          <p class="kicker mb-2">À lire aussi</p>
+          <h2 class="display-md mb-10">Poursuivez la lecture</h2>
+          <div class="grid gap-10 md:grid-cols-2 lg:grid-cols-3">
+            {related.map(p => (
+              <Card post={p} variant="h3" />
+            ))}
+          </div>
+        </section>
+      )
+    }
+  </main>
+
+  <Footer />
+</Layout>
+
+<script is:inline data-astro-rerun>
+  function createProgressBar() {
+    if (document.querySelector(".progress-container")) return;
+    const c = document.createElement("div");
+    c.className =
+      "progress-container fixed top-0 z-50 h-px w-full bg-transparent";
+    const b = document.createElement("div");
+    b.className = "progress-bar h-px w-0 bg-accent/60";
+    b.id = "myBar";
+    c.appendChild(b);
+    document.body.appendChild(c);
+  }
+  createProgressBar();
+  document.addEventListener("scroll", () => {
+    const win = document.body.scrollTop || document.documentElement.scrollTop;
+    const h =
+      document.documentElement.scrollHeight -
+      document.documentElement.clientHeight;
+    const bar = document.getElementById("myBar");
+    if (bar) bar.style.width = h > 0 ? (win / h) * 100 + "%" : "0%";
+  });
+</script>

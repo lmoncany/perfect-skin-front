@@ -1,0 +1,66 @@
+---
+import ArticleLayout from "@/layouts/ArticleLayout.astro";
+import PageLayout from "@/layouts/PageLayout.astro";
+import {
+  getAllPages,
+  getAllPosts,
+  getRelatedPosts,
+} from "@/lib/content";
+import type { Page, Post } from "@/lib/types";
+
+type Entry =
+  | { kind: "post"; entry: Post }
+  | { kind: "page"; entry: Page };
+
+export async function getStaticPaths() {
+  // Slugs that live in their own .astro files (don't generate them here).
+  // Declared inside getStaticPaths because Astro hoists this function to
+  // its own scope; top-level consts in the frontmatter aren't visible here.
+  const RESERVED_SLUGS = new Set([
+    "a-propos",
+    "contact",
+    "mentions-legales",
+    "politique-confidentialite",
+    "search",
+    "feed",
+    "api",
+    "llms.txt",
+    "llms-full.txt",
+    "rss.xml",
+    "robots.txt",
+  ]);
+
+  const [posts, pages] = await Promise.all([getAllPosts(), getAllPages()]);
+
+  const paths = [];
+  for (const post of posts) {
+    if (RESERVED_SLUGS.has(post.slug)) continue;
+    paths.push({
+      params: { slug: post.slug },
+      props: { kind: "post", entry: post } satisfies Entry,
+    });
+  }
+  const usedSlugs = new Set(paths.map(p => p.params.slug));
+  for (const page of pages) {
+    if (RESERVED_SLUGS.has(page.slug)) continue;
+    if (usedSlugs.has(page.slug)) continue; // post wins if both exist
+    paths.push({
+      params: { slug: page.slug },
+      props: { kind: "page", entry: page } satisfies Entry,
+    });
+  }
+  return paths;
+}
+
+const props = Astro.props as Entry;
+const related =
+  props.kind === "post" ? await getRelatedPosts(props.entry, 4) : [];
+---
+
+{
+  props.kind === "post" ? (
+    <ArticleLayout post={props.entry} related={related} />
+  ) : (
+    <PageLayout page={props.entry} />
+  )
+}
