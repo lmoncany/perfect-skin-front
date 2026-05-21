@@ -20,6 +20,7 @@ import {
 } from "./brand-catalog";
 import { mockPages } from "./mock-pages";
 import { isWpConfigured, wpFetch } from "./wp";
+import { normalizeWordPressPublicUrl } from "./rewrite-content";
 import {
   GET_ALL_PAGES,
   GET_ALL_POSTS,
@@ -91,7 +92,8 @@ interface WPPageNode {
 
 function wpNodeToPost(n: WPPostNode): Post {
   const canonical =
-    n.seo?.canonicalUrl || `https://perfect-skin.fr/${n.slug}`;
+    normalizeWordPressPublicUrl(n.seo?.canonicalUrl) ||
+    `https://perfect-skin.fr/${n.slug}`;
   const authorNode = n.author?.node;
   const categorySlugs = (n.categories?.nodes ?? [])
     .filter((c): c is { slug: string; name: string } => !!c?.slug)
@@ -150,7 +152,9 @@ function wpNodeToPost(n: WPPostNode): Post {
 }
 
 function wpPageToPage(n: WPPageNode): Page {
-  const canonical = n.seo?.canonicalUrl || `https://perfect-skin.fr/${n.slug}/`;
+  const canonical =
+    normalizeWordPressPublicUrl(n.seo?.canonicalUrl) ||
+    `https://perfect-skin.fr/${n.slug}/`;
   return {
     id: n.id,
     slug: n.slug,
