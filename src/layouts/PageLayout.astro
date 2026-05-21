@@ -9,6 +9,7 @@ import Header from "@/components/Header.astro";
 import Footer from "@/components/Footer.astro";
 import Breadcrumb from "@/components/Breadcrumb.astro";
 import { SITE } from "@/config";
+import { rewriteWordPressContentLinks } from "@/lib/rewrite-content";
 import type { Page } from "@/lib/types";
 
 type Props = {
@@ -25,6 +26,7 @@ const modified = page.modified
       timeZone: SITE.timezone,
     })
   : null;
+const content = rewriteWordPressContentLinks(page.content);
 ---
 
 <Layout seo={page.seo} type="website">
@@ -44,7 +46,7 @@ const modified = page.modified
           )
         }
       </header>
-      <div class="app-prose prose prose-lg" set:html={page.content} />
+      <div class="app-prose prose prose-lg" set:html={content} />
     </article>
   </main>
   <Footer />

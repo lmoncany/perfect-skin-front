@@ -10,6 +10,7 @@ import Card from "@/components/Card.astro";
 import TableOfContents from "@/components/TableOfContents.astro";
 import { SITE } from "@/config";
 import { getPostImage } from "@/lib/post-image";
+import { rewriteWordPressContentLinks } from "@/lib/rewrite-content";
 import type { Post } from "@/lib/types";
 import { readingTime } from "@/lib/reading-time";
 import { extractToc } from "@/lib/toc";
@@ -41,8 +42,9 @@ const modifiedLabel =
 
 const rt = readingTime(post.content);
 const { toc, html: contentWithIds } = extractToc(post.content);
+const rewrittenContent = rewriteWordPressContentLinks(contentWithIds);
 
-const dropCappedContent = contentWithIds.replace(
+const dropCappedContent = rewrittenContent.replace(
   /<p(\s[^>]*)?>/i,
   (_, attrs) => {
     const existing = /class=["']([^"']*)["']/.exec(attrs ?? "");
