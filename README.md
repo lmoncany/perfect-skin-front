@@ -15,7 +15,7 @@ Based on [AstroPaper](https://github.com/satnaing/astro-paper) (MIT), heavily ad
 # Install (pnpm recommended; npm works too)
 pnpm install
 
-# Dev (uses mock content — no WP connection needed)
+# Dev (uses mock content if WordPress is not configured)
 pnpm dev
 
 # Build + static search index
@@ -25,7 +25,7 @@ pnpm build
 pnpm preview
 ```
 
-The dev server runs on <http://localhost:4321>. With no `WORDPRESS_API_URL` env var set, the site renders from `src/lib/mock-data.ts` fixtures (~40 French beauty posts across 5 categories, 8 with affiliate product lineups). This means you can clone + `pnpm dev` and see a fully-populated site immediately.
+The dev server runs on <http://localhost:4321>. If `WORDPRESS_API_URL` is not set, the site renders from `src/lib/mock-data.ts` fixtures so you can clone + `pnpm dev` and see a fully-populated site immediately. In production, WordPress is required.
 
 ## Wiring up the real WordPress
 
@@ -34,6 +34,7 @@ The dev server runs on <http://localhost:4321>. With no `WORDPRESS_API_URL` env 
    - [WPGraphQL for ACF](https://github.com/wp-graphql/wpgraphql-acf) (if using ACF for affiliate product fields)
    - [wp-graphql-rank-math](https://github.com/ashhitch/wp-graphql-rank-math) (exposes Rank Math meta/JSON-LD)
    - A webhook plugin (e.g. [WP Webhooks](https://wordpress.org/plugins/wp-webhooks/)) to trigger revalidation on publish.
+   - A real brand taxonomy or equivalent GraphQL field if you want brand archives to be sourced directly from WordPress.
 
 2. Point the frontend at your GraphQL endpoint:
 
@@ -43,6 +44,7 @@ The dev server runs on <http://localhost:4321>. With no `WORDPRESS_API_URL` env 
    #   WORDPRESS_API_URL=https://admin.perfect-skin.fr/graphql
    #   REVALIDATE_SECRET=$(openssl rand -hex 32)
    #   CLOUDFLARE_PAGES_DEPLOY_HOOK_URL=https://api.cloudflare.com/client/v4/workers/builds/deploy_hooks/...
+   #   WORDPRESS_BRAND_SOURCE=taxonomy   # optional, when WP exposes a brand taxonomy
    ```
 
 3. Configure the WP webhook to POST to `https://perfect-skin.fr/api/revalidate?secret=<REVALIDATE_SECRET>` on post publish/update. That route validates the secret and triggers your Cloudflare Pages deploy hook.
@@ -65,7 +67,7 @@ The dev server runs on <http://localhost:4321>. With no `WORDPRESS_API_URL` env 
 
 ## Architecture highlights
 
-- **Content layer** — `src/lib/content.ts` is the single source of truth for page data. It transparently swaps between the live WPGraphQL endpoint and mock fixtures based on whether `WORDPRESS_API_URL` is set.
+- **Content layer** — `src/lib/content.ts` is the single source of truth for page data. It uses live WPGraphQL in production and keeps mock fixtures only for local development when WordPress is unavailable.
 - **SEO** — each article's `<head>` is driven by Rank Math metadata pulled through GraphQL (`seo` field). Canonical, OG, Twitter, and JSON-LD all match what Rank Math would render on the native WP theme.
 - **Affiliate** — `src/components/AffiliateCTA.astro` is the single CTA component. It adds `rel="sponsored nofollow"` automatically, routes clicks through a first-party `/api/click` 302 redirect for tracking, and displays the legally-required French disclosure. Product comparison tables emit `Product` + `Review` JSON-LD for rich results.
 - **Performance** — Astro ships zero client JS by default. Pagefind provides static search. Cloudflare handles edge delivery and caching.
@@ -80,7 +82,7 @@ The dev server runs on <http://localhost:4321>. With no `WORDPRESS_API_URL` env 
 ```
 src/
 ├── lib/
-│   ├── content.ts       # unified content API (mock vs WP)
+│   ├── content.ts       # unified content API (WP first, dev fixtures only)
 │   ├── wp.ts            # GraphQL fetch client
 │   ├── queries.ts       # WPGraphQL query strings
 │   ├── types.ts         # shared types

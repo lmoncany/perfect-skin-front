@@ -1,0 +1,17 @@
+name = "psk-edge-router"
+main = "src/index.ts"
+compatibility_date = "2026-05-21"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+[[routes]]
+pattern = "perfect-skin.fr"
+custom_domain = true
+
+[[routes]]
+pattern = "www.perfect-skin.fr"
+custom_domain = true
+
+[[routes]]
+pattern = "admin.perfect-skin.fr"
+custom_domain = true

@@ -13,6 +13,7 @@
     "cf:login": "wrangler login",
     "cf:deploy": "astro build && wrangler pages deploy dist --project-name=psk-front --branch=main",
     "cf:deploy:preview": "astro build && wrangler pages deploy dist --project-name=psk-front --branch=preview",
+    "cf:worker:deploy": "wrangler deploy --config cloudflare/edge-router/wrangler.toml --yes",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
     "lint": "eslint ."

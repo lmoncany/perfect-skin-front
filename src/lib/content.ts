@@ -8,20 +8,31 @@
 
 import type { Brand, Category, Page, Post, Tag } from "./types";
 import {
-  mockBrands,
   mockCategories,
   mockPosts,
   mockTags,
   type MockPost,
 } from "./mock-data";
+import {
+  brandCatalog,
+  findBrandCatalogEntry,
+  type BrandCatalogEntry,
+} from "./brand-catalog";
 import { mockPages } from "./mock-pages";
 import { isWpConfigured, wpFetch } from "./wp";
 import {
   GET_ALL_PAGES,
   GET_ALL_POSTS,
+  GET_ALL_POSTS_WITH_BRANDS,
+  GET_BRANDS,
   GET_CATEGORIES,
   GET_TAGS,
 } from "./queries";
+
+const USE_MOCK_FIXTURES = import.meta.env.DEV && !isWpConfigured();
+const USE_WP_BRAND_TAXONOMY =
+  isWpConfigured() &&
+  (import.meta.env.WORDPRESS_BRAND_SOURCE ?? "").toLowerCase() === "taxonomy";
 
 // ---------- WP response shapes ----------
 
@@ -35,8 +46,8 @@ interface WPPostNode {
   date: string;
   modified: string;
   author: {
-    node: { name: string; slug: string; avatar?: { url: string } | null };
-  };
+    node?: { name?: string | null; slug?: string | null; avatar?: { url?: string | null } | null } | null;
+  } | null;
   featuredImage?: {
     node: {
       sourceUrl: string;
@@ -44,8 +55,13 @@ interface WPPostNode {
       mediaDetails: { width: number; height: number };
     };
   } | null;
-  categories: { nodes: Array<{ slug: string; name: string }> };
-  tags: { nodes: Array<{ slug: string; name: string }> };
+  categories?: { nodes?: Array<{ slug?: string | null; name?: string | null } | null> | null } | null;
+  tags?: { nodes?: Array<{ slug?: string | null; name?: string | null } | null> | null } | null;
+  brands?: {
+    nodes?: Array<
+      { slug?: string | null; name?: string | null; description?: string | null } | null
+    > | null;
+  } | null;
   seo?: {
     title?: string;
     description?: string;
@@ -76,6 +92,20 @@ interface WPPageNode {
 function wpNodeToPost(n: WPPostNode): Post {
   const canonical =
     n.seo?.canonicalUrl || `https://perfect-skin.fr/${n.slug}`;
+  const authorNode = n.author?.node;
+  const categorySlugs = (n.categories?.nodes ?? [])
+    .filter((c): c is { slug: string; name: string } => !!c?.slug)
+    .map(c => c.slug);
+  const tagSlugs = (n.tags?.nodes ?? [])
+    .filter((t): t is { slug: string; name: string } => !!t?.slug)
+    .map(t => t.slug);
+  const brandSlugs = n.brands?.nodes
+    ? n.brands.nodes
+        .filter(
+          (b): b is { slug: string; name: string; description?: string } => !!b?.slug
+        )
+        .map(b => b.slug)
+    : detectBrandSlugsFromText(n);
   return {
     id: n.id,
     slug: n.slug,
@@ -85,9 +115,9 @@ function wpNodeToPost(n: WPPostNode): Post {
     date: n.date,
     modified: n.modified,
     author: {
-      name: n.author.node.name,
-      slug: n.author.node.slug,
-      avatar: n.author.node.avatar?.url,
+      name: authorNode?.name || "Perfect Skin",
+      slug: authorNode?.slug || "redaction",
+      avatar: authorNode?.avatar?.url ?? undefined,
     },
     featuredImage: n.featuredImage
       ? {
@@ -97,8 +127,9 @@ function wpNodeToPost(n: WPPostNode): Post {
           height: n.featuredImage.node.mediaDetails.height,
         }
       : undefined,
-    categories: n.categories.nodes.map(c => c.slug),
-    tags: n.tags.nodes.map(t => t.slug),
+    categories: categorySlugs,
+    tags: tagSlugs,
+    brands: brandSlugs,
     seo: {
       title: n.seo?.title || n.title,
       description: n.seo?.description || stripHtml(n.excerpt).slice(0, 160),
@@ -147,7 +178,8 @@ function mockToPost(m: MockPost): Post {
   return m as Post;
 }
 
-function stripHtml(html: string): string {
+function stripHtml(html: string | null | undefined): string {
+  if (!html) return "";
   return html
     .replace(/<[^>]*>/g, "")
     .replace(/\s+/g, " ")
@@ -163,6 +195,60 @@ function extractPostNodes(nodes: unknown[]): WPPostNode[] {
 
 function byDateDesc(a: Post, b: Post): number {
   return new Date(b.date).getTime() - new Date(a.date).getTime();
+}
+
+function normalizeText(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/['’`]/g, "")
+    .replace(/[^a-z0-9]+/gi, " ")
+    .toLowerCase()
+    .trim();
+}
+
+type BrandTextSource = {
+  title?: string;
+  excerpt?: string;
+  content?: string;
+  seo?: { title?: string; description?: string } | null;
+};
+
+function brandTextMatches(post: BrandTextSource, brand: BrandCatalogEntry): boolean {
+  const haystack = normalizeText(
+    [
+      post.title,
+      post.excerpt,
+      stripHtml(post.content),
+      post.seo?.title,
+      post.seo?.description,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+  const candidates = [brand.slug, brand.name, ...brand.aliases].map(normalizeText);
+  return candidates.some(candidate => candidate && haystack.includes(candidate));
+}
+
+function brandFromCatalogEntry(brand: BrandCatalogEntry): Brand {
+  return {
+    slug: brand.slug,
+    name: brand.name,
+    description: brand.description,
+    logo: brand.logo,
+  };
+}
+
+function detectBrandSlugsFromText(
+  post: BrandTextSource
+): string[] {
+  return brandCatalog
+    .filter(brand => brandTextMatches(post, brand))
+    .map(brand => brand.slug);
+}
+
+function brandSlugsFromPosts(posts: Post[]): string[] {
+  return Array.from(new Set(posts.flatMap(post => post.brands ?? [])));
 }
 
 // ---------- Build-time cache ----------
@@ -187,6 +273,9 @@ let _tagsPromise: Promise<Tag[]> | null = null;
 let _pagesCache: Page[] | null = null;
 let _pagesPromise: Promise<Page[]> | null = null;
 
+let _brandsCache: Brand[] | null = null;
+let _brandsPromise: Promise<Brand[]> | null = null;
+
 async function fetchAllPostsFromWP(): Promise<Post[]> {
   const all: WPPostNode[] = [];
   let cursor: string | undefined;
@@ -196,8 +285,9 @@ async function fetchAllPostsFromWP(): Promise<Post[]> {
     const vars: Record<string, unknown> = { first: 100 };
     if (cursor) vars.after = cursor;
     console.log(`[content] Fetching posts page ${page}...`);
+    const query = USE_WP_BRAND_TAXONOMY ? GET_ALL_POSTS_WITH_BRANDS : GET_ALL_POSTS;
     const resp: ContentNodesResp = await wpFetch<ContentNodesResp>(
-      GET_ALL_POSTS,
+      query,
       vars
     );
     all.push(...extractPostNodes(resp.contentNodes.nodes));
@@ -241,7 +331,7 @@ async function fetchPagesFromWP(): Promise<Page[]> {
 // ---------- Public API (cached) ----------
 
 export async function getAllPosts(): Promise<Post[]> {
-  if (!isWpConfigured()) {
+  if (USE_MOCK_FIXTURES) {
     return [...mockPosts].map(mockToPost).sort(byDateDesc);
   }
   if (_postsCache) return _postsCache;
@@ -266,17 +356,12 @@ export async function getPostsByTag(slug: string): Promise<Post[]> {
 }
 
 export async function getPostsByBrand(slug: string): Promise<Post[]> {
-  if (!isWpConfigured()) {
-    return mockPosts
-      .filter(p => p.brands?.includes(slug))
-      .map(mockToPost)
-      .sort(byDateDesc);
-  }
-  return [];
+  const all = await getAllPosts();
+  return all.filter(post => post.brands?.includes(slug));
 }
 
 export async function getCategories(): Promise<Category[]> {
-  if (!isWpConfigured()) return mockCategories;
+  if (USE_MOCK_FIXTURES) return mockCategories;
   if (_categoriesCache) return _categoriesCache;
   if (!_categoriesPromise) _categoriesPromise = fetchCategoriesFromWP();
   _categoriesCache = await _categoriesPromise;
@@ -284,7 +369,7 @@ export async function getCategories(): Promise<Category[]> {
 }
 
 export async function getTags(): Promise<Tag[]> {
-  if (!isWpConfigured()) return mockTags;
+  if (USE_MOCK_FIXTURES) return mockTags;
   if (_tagsCache) return _tagsCache;
   if (!_tagsPromise) _tagsPromise = fetchTagsFromWP();
   _tagsCache = await _tagsPromise;
@@ -292,7 +377,50 @@ export async function getTags(): Promise<Tag[]> {
 }
 
 export async function getBrands(): Promise<Brand[]> {
-  return mockBrands;
+  if (USE_MOCK_FIXTURES) {
+    return brandCatalog.map(brandFromCatalogEntry);
+  }
+  if (USE_WP_BRAND_TAXONOMY) {
+    if (_brandsCache) return _brandsCache;
+    if (!_brandsPromise) {
+      _brandsPromise = (async () => {
+        const data = await wpFetch<{
+          brands: {
+            nodes: Array<
+              { slug: string; name: string; description?: string | null } | null
+            >;
+          };
+        }>(GET_BRANDS);
+        return (data.brands.nodes ?? [])
+          .filter(
+            (brand): brand is {
+              slug: string;
+              name: string;
+              description?: string | null;
+            } => !!brand?.slug
+          )
+          .map(brand => ({
+            slug: brand.slug,
+            name: brand.name,
+            description: brand.description ?? "",
+          }));
+      })();
+    }
+    _brandsCache = await _brandsPromise;
+    return _brandsCache;
+  }
+  if (_brandsCache) return _brandsCache;
+  if (!_brandsPromise) {
+    _brandsPromise = (async () => {
+      const all = await getAllPosts();
+      const slugs = brandSlugsFromPosts(all);
+      return brandCatalog
+        .filter(brand => slugs.includes(brand.slug))
+        .map(brandFromCatalogEntry);
+    })();
+  }
+  _brandsCache = await _brandsPromise;
+  return _brandsCache;
 }
 
 export async function getCategory(slug: string): Promise<Category | null> {
@@ -307,11 +435,43 @@ export async function getTag(slug: string): Promise<Tag | null> {
 
 export async function getBrand(slug: string): Promise<Brand | null> {
   const all = await getBrands();
-  return all.find(b => b.slug === slug) ?? null;
+  const found = all.find(b => b.slug === slug);
+  if (found) return found;
+
+  if (USE_WP_BRAND_TAXONOMY) {
+    try {
+      const data = await wpFetch<{
+        brand: { slug: string; name: string; description?: string | null } | null;
+      }>(
+        /* GraphQL */ `
+          query GetBrandBySlug($slug: ID!) {
+            brand(id: $slug, idType: SLUG) {
+              slug
+              name
+              description
+            }
+          }
+        `,
+        { slug }
+      );
+      if (data.brand) {
+        return {
+          slug: data.brand.slug,
+          name: data.brand.name,
+          description: data.brand.description ?? "",
+        };
+      }
+    } catch {
+      // Keep the catalog fallback below if the taxonomy endpoint is not ready yet.
+    }
+  }
+
+  const match = findBrandCatalogEntry(slug);
+  return match ? brandFromCatalogEntry(match) : null;
 }
 
 export async function getAllPages(): Promise<Page[]> {
-  if (!isWpConfigured()) return mockPages;
+  if (USE_MOCK_FIXTURES) return mockPages;
   if (_pagesCache) return _pagesCache;
   if (!_pagesPromise) _pagesPromise = fetchPagesFromWP();
   _pagesCache = await _pagesPromise;
@@ -325,10 +485,12 @@ export async function getPageBySlug(slug: string): Promise<Page | null> {
       const found = all.find(p => p.slug === slug);
       if (found) return found;
     } catch {
-      // Fall through to mock if WP errors.
+      if (!USE_MOCK_FIXTURES) {
+        throw new Error(`WordPress page fetch failed for "${slug}".`);
+      }
     }
   }
-  return mockPages.find(p => p.slug === slug) ?? null;
+  return USE_MOCK_FIXTURES ? mockPages.find(p => p.slug === slug) ?? null : null;
 }
 
 export async function getRelatedPosts(

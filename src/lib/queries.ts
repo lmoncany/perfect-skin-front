@@ -66,6 +66,74 @@ export const POST_FIELDS = /* GraphQL */ `
   }
 `;
 
+export const POST_FIELDS_WITH_BRANDS = /* GraphQL */ `
+  fragment PostFieldsWithBrands on Post {
+    id
+    databaseId
+    slug
+    title
+    excerpt
+    content
+    date
+    modified
+    author {
+      node {
+        name
+        slug
+        avatar {
+          url
+        }
+      }
+    }
+    featuredImage {
+      node {
+        sourceUrl
+        altText
+        mediaDetails {
+          width
+          height
+        }
+      }
+    }
+    categories {
+      nodes {
+        slug
+        name
+      }
+    }
+    tags {
+      nodes {
+        slug
+        name
+      }
+    }
+    brands {
+      nodes {
+        slug
+        name
+        description
+      }
+    }
+    seo {
+      title
+      description
+      canonicalUrl
+      robots
+      openGraph {
+        title
+        description
+        image {
+          url
+        }
+        type
+      }
+      jsonLd {
+        raw
+      }
+    }
+  }
+`;
+
 // Fetch all published articles via contentNodes (WAF-safe).
 export const GET_ALL_POSTS = /* GraphQL */ `
   ${POST_FIELDS}
@@ -82,6 +150,27 @@ export const GET_ALL_POSTS = /* GraphQL */ `
       nodes {
         ... on Post {
           ...PostFields
+        }
+      }
+    }
+  }
+`;
+
+export const GET_ALL_POSTS_WITH_BRANDS = /* GraphQL */ `
+  ${POST_FIELDS_WITH_BRANDS}
+  query GetAllContentNodesWithBrands($first: Int = 100, $after: String) {
+    contentNodes(
+      first: $first
+      after: $after
+      where: { contentTypes: POST, status: PUBLISH }
+    ) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        ... on Post {
+          ...PostFieldsWithBrands
         }
       }
     }
@@ -164,6 +253,20 @@ export const GET_TAGS = /* GraphQL */ `
         slug
         name
         count
+      }
+    }
+  }
+`;
+
+// Optional brand taxonomy support for when WordPress exposes a real brand
+// term archive via WPGraphQL.
+export const GET_BRANDS = /* GraphQL */ `
+  query GetBrands {
+    brands(first: 100, where: { hideEmpty: true }) {
+      nodes {
+        slug
+        name
+        description
       }
     }
   }
