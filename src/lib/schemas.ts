@@ -14,6 +14,7 @@
  */
 
 import { SITE } from "@/config";
+import { getPostImage } from "./post-image";
 import type { Post } from "./types";
 
 const origin = SITE.website.replace(/\/$/, "");
@@ -81,9 +82,7 @@ export function articleSchema(
     },
     headline: post.title,
     description: post.excerpt,
-    image: post.featuredImage?.url
-      ? [post.featuredImage.url]
-      : undefined,
+    image: [getPostImage(post).src],
     datePublished: post.date,
     dateModified: post.modified || post.date,
     author: {

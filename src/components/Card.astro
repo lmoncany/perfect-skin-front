@@ -1,6 +1,7 @@
 ---
 import type { Post } from "@/lib/types";
 import { SITE } from "@/config";
+import { getPostImage } from "@/lib/post-image";
 
 type Props = {
   post: Post;
@@ -17,7 +18,7 @@ const dateLabel = new Date(post.date).toLocaleDateString("fr-FR", {
   day: "numeric",
   timeZone: SITE.timezone,
 });
-const hasImage = !!post.featuredImage?.url;
+const image = getPostImage(post);
 const categoryLabel = post.categories[0]?.replace(/-/g, " ").toUpperCase() || "";
 ---
 
@@ -27,31 +28,28 @@ const categoryLabel = post.categories[0]?.replace(/-/g, " ").toUpperCase() || ""
     hero ? "md:flex-row md:gap-10" : "",
   ]}
 >
-  {
-    hasImage && (
-      <a
-        href={href}
-        class:list={[
-          "block overflow-hidden bg-muted",
-          hero
-            ? "md:w-3/5 aspect-[4/3] md:aspect-[16/10]"
-            : "aspect-[4/3] mb-5",
-        ]}
-        aria-hidden="true"
-        tabindex="-1"
-      >
-        <img
-          src={post.featuredImage!.url}
-          alt={post.featuredImage!.alt}
-          loading="lazy"
-          decoding="async"
-          width={post.featuredImage!.width}
-          height={post.featuredImage!.height}
-          class="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-        />
-      </a>
-    )
-  }
+  <a
+    href={href}
+    class:list={[
+      "block overflow-hidden bg-muted",
+      hero ? "md:w-3/5 aspect-[4/3] md:aspect-[16/10]" : "aspect-[4/3] mb-5",
+    ]}
+    aria-hidden="true"
+    tabindex="-1"
+  >
+    <img
+      src={image.src}
+      alt={image.alt}
+      loading="lazy"
+      decoding="async"
+      width={image.width}
+      height={image.height}
+      class:list={[
+        "h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]",
+        image.hasImage ? "" : "opacity-[0.98]",
+      ]}
+    />
+  </a>
 
   <div class:list={["flex flex-1 flex-col justify-center gap-3", hero ? "md:w-2/5 md:py-6" : ""]}>
     {

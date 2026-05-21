@@ -8,6 +8,7 @@ import IconArrowRight from "@/assets/icons/IconArrowRight.svg";
 import { SITE } from "@/config";
 import { NAV } from "@/constants";
 import { getAllPosts, getCategories } from "@/lib/content";
+import { getPostImage } from "@/lib/post-image";
 
 const posts = await getAllPosts();
 const categories = await getCategories();
@@ -56,20 +57,20 @@ const homeSeoDescription = SITE.desc;
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 mt-12">
               {nextFeatured.map(p => (
                 <article class="group flex flex-col">
-                  {p.featuredImage?.url && (
-                    <a
-                      href={`/${p.slug}/`}
-                      class="block overflow-hidden mb-5 aspect-[4/3]"
-                    >
-                      <img
-                        src={p.featuredImage.url}
-                        alt={p.featuredImage.alt}
-                        loading="lazy"
-                        decoding="async"
-                        class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
-                      />
-                    </a>
-                  )}
+                  <a
+                    href={`/${p.slug}/`}
+                    class="block overflow-hidden mb-5 aspect-[4/3]"
+                  >
+                    <img
+                      src={getPostImage(p).src}
+                      alt={getPostImage(p).alt}
+                      loading="lazy"
+                      decoding="async"
+                      width={getPostImage(p).width}
+                      height={getPostImage(p).height}
+                      class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                    />
+                  </a>
                   {p.categories[0] && (
                     <p class="kicker mb-2">
                       {p.categories[0].replace(/-/g, " ")}
@@ -115,20 +116,20 @@ const homeSeoDescription = SITE.desc;
             <div class="grid gap-8 sm:gap-10 sm:grid-cols-2 lg:grid-cols-4">
               {list.slice(0, 4).map(p => (
                 <article class="group flex flex-col">
-                  {p.featuredImage?.url && (
-                    <a
-                      href={`/${p.slug}/`}
-                      class="block overflow-hidden mb-4 aspect-[4/5]"
-                    >
-                      <img
-                        src={p.featuredImage.url}
-                        alt={p.featuredImage.alt}
-                        loading="lazy"
-                        decoding="async"
-                        class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
-                      />
-                    </a>
-                  )}
+                  <a
+                    href={`/${p.slug}/`}
+                    class="block overflow-hidden mb-4 aspect-[4/5]"
+                  >
+                    <img
+                      src={getPostImage(p).src}
+                      alt={getPostImage(p).alt}
+                      loading="lazy"
+                      decoding="async"
+                      width={getPostImage(p).width}
+                      height={getPostImage(p).height}
+                      class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                    />
+                  </a>
 
                   <a href={`/${p.slug}/`} class="group/link">
                     <h3 class="font-display text-base font-medium text-foreground group-hover/link:text-accent transition-colors duration-300 leading-snug mb-2">

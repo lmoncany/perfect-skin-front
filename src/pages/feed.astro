@@ -2,6 +2,7 @@
 import Layout from "@/layouts/Layout.astro";
 import { getAllPosts } from "@/lib/content";
 import { SITE } from "@/config";
+import { getPostImage } from "@/lib/post-image";
 
 const posts = (await getAllPosts()).slice(0, 30);
 
@@ -53,22 +54,23 @@ const seo = {
         const catLabel = post.categories[0]
           ? post.categories[0].replace(/-/g, " ")
           : "";
+        const image = getPostImage(post);
         return (
           <article
             id={`feed-${idx}`}
             class="relative flex h-dvh w-full snap-start items-end overflow-hidden"
             aria-labelledby={`feed-title-${idx}`}
           >
-            {post.featuredImage?.url && (
-              <img
-                src={post.featuredImage.url}
-                alt={post.featuredImage.alt}
-                loading={idx < 2 ? "eager" : "lazy"}
-                decoding="async"
-                fetchpriority={idx === 0 ? "high" : "auto"}
-                class="absolute inset-0 h-full w-full object-cover"
-              />
-            )}
+            <img
+              src={image.src}
+              alt={image.alt}
+              loading={idx < 2 ? "eager" : "lazy"}
+              decoding="async"
+              fetchpriority={idx === 0 ? "high" : "auto"}
+              width={image.width}
+              height={image.height}
+              class="absolute inset-0 h-full w-full object-cover"
+            />
             {/* Gradient overlay for readability */}
             <div
               aria-hidden="true"

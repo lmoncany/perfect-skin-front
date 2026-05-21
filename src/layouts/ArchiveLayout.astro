@@ -4,6 +4,7 @@ import Header from "@/components/Header.astro";
 import Footer from "@/components/Footer.astro";
 import Breadcrumb from "@/components/Breadcrumb.astro";
 import Pagination from "@/components/Pagination.astro";
+import { getPostImage } from "@/lib/post-image";
 import type { Page } from "astro";
 import type { Post } from "@/lib/types";
 
@@ -42,22 +43,22 @@ const restPosts = page.data.slice(1);
           {firstPost && (
             <article class="mb-16 pb-16 border-b border-border/25">
               <div class="md:grid md:grid-cols-5 md:gap-10">
-                {firstPost.featuredImage?.url && (
-                  <div class="md:col-span-3 mb-6 md:mb-0">
-                    <a
-                      href={`/${firstPost.slug}/`}
-                      class="block overflow-hidden aspect-[16/10] group"
-                    >
-                      <img
-                        src={firstPost.featuredImage.url}
-                        alt={firstPost.featuredImage.alt}
-                        loading="lazy"
-                        decoding="async"
-                        class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
-                      />
-                    </a>
-                  </div>
-                )}
+                <div class="md:col-span-3 mb-6 md:mb-0">
+                  <a
+                    href={`/${firstPost.slug}/`}
+                    class="block overflow-hidden aspect-[16/10] group"
+                  >
+                    <img
+                      src={getPostImage(firstPost).src}
+                      alt={getPostImage(firstPost).alt}
+                      loading="lazy"
+                      decoding="async"
+                      width={getPostImage(firstPost).width}
+                      height={getPostImage(firstPost).height}
+                      class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                    />
+                  </a>
+                </div>
 
                 <div class="md:col-span-2 flex flex-col justify-center">
                   {firstPost.categories[0] && (
@@ -94,20 +95,20 @@ const restPosts = page.data.slice(1);
             <div class="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
               {restPosts.map(post => (
                 <article class="group flex flex-col">
-                  {post.featuredImage?.url && (
-                    <a
-                      href={`/${post.slug}/`}
-                      class="block overflow-hidden mb-5 aspect-[4/5]"
-                    >
-                      <img
-                        src={post.featuredImage.url}
-                        alt={post.featuredImage.alt}
-                        loading="lazy"
-                        decoding="async"
-                        class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
-                      />
-                    </a>
-                  )}
+                  <a
+                    href={`/${post.slug}/`}
+                    class="block overflow-hidden mb-5 aspect-[4/5]"
+                  >
+                    <img
+                      src={getPostImage(post).src}
+                      alt={getPostImage(post).alt}
+                      loading="lazy"
+                      decoding="async"
+                      width={getPostImage(post).width}
+                      height={getPostImage(post).height}
+                      class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                    />
+                  </a>
 
                   {post.categories[0] && (
                     <p class="kicker mb-2">
