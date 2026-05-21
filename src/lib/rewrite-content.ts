@@ -39,3 +39,25 @@ export function normalizeWordPressPublicUrl(
     PUBLIC_ORIGIN
   );
 }
+
+/**
+ * Normalize raw Rank Math JSON-LD so page and author URLs use the public
+ * frontend domain while media URLs under /wp-content stay untouched.
+ */
+export function rewriteWordPressJsonLd(jsonLd: string): string {
+  if (!jsonLd) return jsonLd;
+
+  return jsonLd
+    .replace(
+      /https?:\/\/admin\.perfect-skin\.fr(?!\/wp-content\/)/gi,
+      PUBLIC_ORIGIN
+    )
+    .replace(
+      /https?:\/\/www\.perfect-skin\.fr(?!\/wp-content\/)/gi,
+      PUBLIC_ORIGIN
+    )
+    .replace(
+      /https?:\/\/perfect-skin\.fr(?!\/wp-content\/)/gi,
+      PUBLIC_ORIGIN
+    );
+}

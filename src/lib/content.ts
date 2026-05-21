@@ -20,7 +20,10 @@ import {
 } from "./brand-catalog";
 import { mockPages } from "./mock-pages";
 import { isWpConfigured, wpFetch } from "./wp";
-import { normalizeWordPressPublicUrl } from "./rewrite-content";
+import {
+  normalizeWordPressPublicUrl,
+  rewriteWordPressJsonLd,
+} from "./rewrite-content";
 import {
   GET_ALL_PAGES,
   GET_ALL_POSTS,
@@ -146,7 +149,7 @@ function wpNodeToPost(n: WPPostNode): Post {
         image: n.seo?.openGraph?.image?.url,
         type: (n.seo?.openGraph?.type as "article") || "article",
       },
-      jsonLd: n.seo?.jsonLd?.raw || "",
+      jsonLd: rewriteWordPressJsonLd(n.seo?.jsonLd?.raw || ""),
     },
   };
 }
@@ -173,7 +176,7 @@ function wpPageToPage(n: WPPageNode): Page {
         image: n.seo?.openGraph?.image?.url,
         type: "website",
       },
-      jsonLd: n.seo?.jsonLd?.raw || "",
+      jsonLd: rewriteWordPressJsonLd(n.seo?.jsonLd?.raw || ""),
     },
   };
 }
