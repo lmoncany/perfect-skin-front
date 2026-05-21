@@ -6,7 +6,14 @@
 // This means only ~3 GraphQL requests total (posts, categories, tags) instead
 // of hundreds.
 
-import type { Brand, Category, Page, Post, Tag } from "./types";
+import type {
+  AuthorArchive,
+  Brand,
+  Category,
+  Page,
+  Post,
+  Tag,
+} from "./types";
 import {
   mockCategories,
   mockPosts,
@@ -258,6 +265,37 @@ function brandSlugsFromPosts(posts: Post[]): string[] {
   return Array.from(new Set(posts.flatMap(post => post.brands ?? [])));
 }
 
+function authorsFromPosts(posts: Post[]): AuthorArchive[] {
+  const authors = new Map<string, AuthorArchive & { latest: string }>();
+
+  for (const post of posts) {
+    const currentModified = post.modified || post.date;
+    const existing = authors.get(post.author.slug);
+    if (!existing) {
+      authors.set(post.author.slug, {
+        name: post.author.name,
+        slug: post.author.slug,
+        avatar: post.author.avatar,
+        description: undefined,
+        count: 1,
+        latest: currentModified,
+      });
+      continue;
+    }
+
+    existing.count += 1;
+    if (!existing.avatar && post.author.avatar) existing.avatar = post.author.avatar;
+    if (new Date(currentModified).getTime() > new Date(existing.latest).getTime()) {
+      existing.latest = currentModified;
+      existing.name = post.author.name;
+    }
+  }
+
+  return Array.from(authors.values())
+    .sort((a, b) => new Date(b.latest).getTime() - new Date(a.latest).getTime())
+    .map(({ latest: _latest, ...author }) => author);
+}
+
 // ---------- Build-time cache ----------
 // Fetches data once and reuses across all pages during SSG build.
 
@@ -282,6 +320,9 @@ let _pagesPromise: Promise<Page[]> | null = null;
 
 let _brandsCache: Brand[] | null = null;
 let _brandsPromise: Promise<Brand[]> | null = null;
+
+let _authorsCache: AuthorArchive[] | null = null;
+let _authorsPromise: Promise<AuthorArchive[]> | null = null;
 
 async function fetchAllPostsFromWP(): Promise<Post[]> {
   const all: WPPostNode[] = [];
@@ -365,6 +406,11 @@ export async function getPostsByTag(slug: string): Promise<Post[]> {
 export async function getPostsByBrand(slug: string): Promise<Post[]> {
   const all = await getAllPosts();
   return all.filter(post => post.brands?.includes(slug));
+}
+
+export async function getPostsByAuthor(slug: string): Promise<Post[]> {
+  const all = await getAllPosts();
+  return all.filter(post => post.author.slug === slug);
 }
 
 export async function getCategories(): Promise<Category[]> {
@@ -475,6 +521,23 @@ export async function getBrand(slug: string): Promise<Brand | null> {
 
   const match = findBrandCatalogEntry(slug);
   return match ? brandFromCatalogEntry(match) : null;
+}
+
+export async function getAuthors(): Promise<AuthorArchive[]> {
+  if (_authorsCache) return _authorsCache;
+  if (!_authorsPromise) {
+    _authorsPromise = (async () => {
+      const posts = await getAllPosts();
+      return authorsFromPosts(posts);
+    })();
+  }
+  _authorsCache = await _authorsPromise;
+  return _authorsCache;
+}
+
+export async function getAuthor(slug: string): Promise<AuthorArchive | null> {
+  const all = await getAuthors();
+  return all.find(author => author.slug === slug) ?? null;
 }
 
 export async function getAllPages(): Promise<Page[]> {

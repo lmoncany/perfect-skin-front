@@ -22,7 +22,13 @@ const INTERNAL_HREF_PATTERN = new RegExp(
 export function rewriteWordPressContentLinks(html: string): string {
   if (!html) return html;
 
-  return html.replace(INTERNAL_HREF_PATTERN, `$1${PUBLIC_ORIGIN}`);
+  return html
+    .replace(INTERNAL_HREF_PATTERN, `$1${PUBLIC_ORIGIN}`)
+    .replace(/href=(["'])\/author\//gi, 'href=$1/auteur/')
+    .replace(
+      /href=(["'])https?:\/\/perfect-skin\.fr\/author\//gi,
+      'href=$1https://perfect-skin.fr/auteur/'
+    );
 }
 
 /**
@@ -59,5 +65,9 @@ export function rewriteWordPressJsonLd(jsonLd: string): string {
     .replace(
       /https?:\/\/perfect-skin\.fr(?!\/wp-content\/)/gi,
       PUBLIC_ORIGIN
+    )
+    .replace(
+      /https:\/\/perfect-skin\.fr\/author\//gi,
+      `${PUBLIC_ORIGIN}/auteur/`
     );
 }

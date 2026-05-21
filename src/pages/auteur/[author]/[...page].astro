@@ -1,0 +1,29 @@
+---
+import type { GetStaticPaths } from "astro";
+import AuthorLayout from "@/layouts/AuthorLayout.astro";
+import { getAuthors, getPostsByAuthor } from "@/lib/content";
+import { SITE } from "@/config";
+
+export const getStaticPaths = (async ({ paginate }) => {
+  const authors = await getAuthors();
+  const results = [];
+
+  for (const author of authors) {
+    const posts = await getPostsByAuthor(author.slug);
+    if (posts.length === 0) continue;
+
+    const paths = paginate(posts, {
+      params: { author: author.slug },
+      pageSize: SITE.postPerPage,
+      props: { author },
+    });
+    results.push(...paths);
+  }
+
+  return results;
+}) satisfies GetStaticPaths;
+
+const { page, author } = Astro.props;
+---
+
+<AuthorLayout author={author} page={page} />

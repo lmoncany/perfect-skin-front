@@ -1,0 +1,80 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import Breadcrumb from "@/components/Breadcrumb.astro";
+import Pagination from "@/components/Pagination.astro";
+import Card from "@/components/Card.astro";
+import { SITE } from "@/config";
+import type { AuthorArchive, Post } from "@/lib/types";
+import type { Page } from "astro";
+
+type Props = {
+  author: AuthorArchive;
+  page: Page<Post>;
+};
+
+const { author, page } = Astro.props;
+const title = `${author.name} — ${SITE.title}`;
+const description = author.description
+  ? author.description
+  : `Tous les articles signés par ${author.name} sur ${SITE.title}.`;
+---
+
+<Layout seo={{ title, description, canonicalUrl: `${SITE.website.replace(/\/$/, "")}/auteur/${author.slug}/`, openGraph: { title, description, type: "website" }, jsonLd: "" }} type="website">
+  <Header />
+  <Breadcrumb />
+  <main id="main-content" class="app-layout pb-16">
+    <header class="mb-14 mt-10 flex flex-col gap-6 md:flex-row md:items-center md:gap-8">
+      <div class="shrink-0">
+        {
+          author.avatar ? (
+            <img
+              src={author.avatar}
+              alt={author.name}
+              width="120"
+              height="120"
+              class="h-28 w-28 rounded-full object-cover ring-1 ring-border/20"
+            />
+          ) : (
+            <div class="flex h-28 w-28 items-center justify-center rounded-full bg-muted text-3xl font-display font-semibold text-foreground/60 ring-1 ring-border/20">
+              {author.name.charAt(0).toUpperCase()}
+            </div>
+          )
+        }
+      </div>
+
+      <div class="max-w-2xl">
+        <p class="kicker mb-3">Auteur</p>
+        <h1 class="display-lg mb-4">{author.name}</h1>
+        <p class="text-base sm:text-lg text-foreground/50 leading-relaxed font-light">
+          {description}
+        </p>
+        <p class="mt-4 font-accent text-[11px] tracking-wide text-foreground/35 uppercase">
+          {author.count} article{author.count > 1 ? "s" : ""}
+        </p>
+      </div>
+    </header>
+
+    {
+      page.data.length > 0 ? (
+        <>
+          {page.data.length > 0 && (
+            <div class="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
+              {page.data.map(post => (
+                <Card post={post} variant="h3" />
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <p class="py-20 text-center text-foreground/40 text-base font-light">
+          Aucun article pour cet auteur.
+        </p>
+      )
+    }
+
+    <Pagination page={page} />
+  </main>
+  <Footer />
+</Layout>

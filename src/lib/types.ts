@@ -8,6 +8,11 @@ export interface Author {
   avatar?: string;
 }
 
+export interface AuthorArchive extends Author {
+  description?: string;
+  count: number;
+}
+
 export interface FeaturedImage {
   url: string;
   alt: string;
