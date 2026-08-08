@@ -39,8 +39,14 @@ import {
   GET_CATEGORIES,
   GET_TAGS,
 } from "./queries";
+import { decodeHTML } from "entities";
 
 const USE_MOCK_FIXTURES = import.meta.env.DEV && !isWpConfigured();
+const STATIC_PAGE_SLUGS = new Set([
+  "a-propos",
+  "contact",
+  "politique-confidentialite",
+]);
 const USE_WP_BRAND_TAXONOMY =
   isWpConfigured() &&
   (import.meta.env.WORDPRESS_BRAND_SOURCE ?? "").toLowerCase() === "taxonomy";
@@ -100,6 +106,10 @@ interface WPPageNode {
 
 // ---------- Transformers ----------
 
+function decodeText(value: string | null | undefined, fallback: string = ""): string {
+  return value ? decodeHTML(value) : fallback;
+}
+
 function wpNodeToPost(n: WPPostNode): Post {
   const canonical =
     normalizeWordPressPublicUrl(n.seo?.canonicalUrl) ||
@@ -121,13 +131,13 @@ function wpNodeToPost(n: WPPostNode): Post {
   return {
     id: n.id,
     slug: n.slug,
-    title: n.title,
+    title: decodeText(n.title),
     excerpt: stripHtml(n.excerpt),
     content: n.content,
     date: n.date,
     modified: n.modified,
     author: {
-      name: authorNode?.name || "Perfect Skin",
+      name: decodeText(authorNode?.name, "Perfect Skin"),
       slug: authorNode?.slug || "redaction",
       avatar: authorNode?.avatar?.url ?? undefined,
     },
@@ -143,12 +153,12 @@ function wpNodeToPost(n: WPPostNode): Post {
     tags: tagSlugs,
     brands: brandSlugs,
     seo: {
-      title: n.seo?.title || n.title,
+      title: decodeText(n.seo?.title || n.title),
       description: n.seo?.description || stripHtml(n.excerpt).slice(0, 160),
       canonicalUrl: canonical,
       robots: n.seo?.robots,
       openGraph: {
-        title: n.seo?.openGraph?.title || n.title,
+        title: decodeText(n.seo?.openGraph?.title || n.title),
         description:
           n.seo?.openGraph?.description ||
           n.seo?.description ||
@@ -168,16 +178,16 @@ function wpPageToPage(n: WPPageNode): Page {
   return {
     id: n.id,
     slug: n.slug,
-    title: n.title,
+    title: decodeText(n.title),
     content: n.content,
     modified: n.modified,
     seo: {
-      title: n.seo?.title || n.title,
+      title: decodeText(n.seo?.title || n.title),
       description: n.seo?.description || "",
       canonicalUrl: canonical,
       robots: n.seo?.robots,
       openGraph: {
-        title: n.seo?.openGraph?.title || n.title,
+        title: decodeText(n.seo?.openGraph?.title || n.title),
         description:
           n.seo?.openGraph?.description || n.seo?.description || "",
         image: n.seo?.openGraph?.image?.url,
@@ -194,10 +204,12 @@ function mockToPost(m: MockPost): Post {
 
 function stripHtml(html: string | null | undefined): string {
   if (!html) return "";
-  return html
+  return decodeText(
+    html
     .replace(/<[^>]*>/g, "")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim()
+  );
 }
 
 function extractPostNodes(nodes: unknown[]): WPPostNode[] {
@@ -353,14 +365,21 @@ async function fetchCategoriesFromWP(): Promise<Category[]> {
     GET_CATEGORIES
   );
   console.log(`[content] Fetched ${data.categories.nodes.length} categories.`);
-  return data.categories.nodes;
+  return data.categories.nodes.map(category => ({
+    ...category,
+    name: decodeText(category.name),
+    description: decodeText(category.description),
+  }));
 }
 
 async function fetchTagsFromWP(): Promise<Tag[]> {
   console.log("[content] Fetching tags...");
   const data = await wpFetch<{ tags: { nodes: Tag[] } }>(GET_TAGS);
   console.log(`[content] Fetched ${data.tags.nodes.length} tags.`);
-  return data.tags.nodes;
+  return data.tags.nodes.map(tag => ({
+    ...tag,
+    name: decodeText(tag.name),
+  }));
 }
 
 async function fetchPagesFromWP(): Promise<Page[]> {
@@ -559,6 +578,9 @@ export async function getPageBySlug(slug: string): Promise<Page | null> {
         throw new Error(`WordPress page fetch failed for "${slug}".`);
       }
     }
+  }
+  if (STATIC_PAGE_SLUGS.has(slug)) {
+    return mockPages.find(p => p.slug === slug) ?? null;
   }
   return USE_MOCK_FIXTURES ? mockPages.find(p => p.slug === slug) ?? null : null;
 }

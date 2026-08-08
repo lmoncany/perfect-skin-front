@@ -1,4 +1,5 @@
 import { SITE } from "@/config";
+import { decodeHTML } from "entities";
 
 const PUBLIC_ORIGIN = new URL(SITE.website).origin;
 
@@ -22,13 +23,15 @@ const INTERNAL_HREF_PATTERN = new RegExp(
 export function rewriteWordPressContentLinks(html: string): string {
   if (!html) return html;
 
-  return html
+  return decodeHTML(
+    html
     .replace(INTERNAL_HREF_PATTERN, `$1${PUBLIC_ORIGIN}`)
     .replace(/href=(["'])\/author\//gi, 'href=$1/auteur/')
     .replace(
       /href=(["'])https?:\/\/perfect-skin\.fr\/author\//gi,
       'href=$1https://perfect-skin.fr/auteur/'
-    );
+    )
+  );
 }
 
 /**

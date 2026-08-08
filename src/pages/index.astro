@@ -13,14 +13,28 @@ import { getPostImage } from "@/lib/post-image";
 const posts = await getAllPosts();
 const categories = await getCategories();
 
+// Pre-process posts into category map for O(1) lookup
+const postsByCategory: Record<string, Post[]> = {};
+posts.forEach(post => {
+  post.categories.forEach(catSlug => {
+    if (!postsByCategory[catSlug]) {
+      postsByCategory[catSlug] = [];
+    }
+    postsByCategory[catSlug].push(post);
+  });
+});
+
+// Sort each category's posts by date
+Object.keys(postsByCategory).forEach(catSlug => {
+  postsByCategory[catSlug].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+});
+
 const hero = posts[0];
 const nextFeatured = posts.slice(1, 3);
 
 const categoryTop: Record<string, typeof posts> = {};
 for (const cat of categories) {
-  categoryTop[cat.slug] = posts
-    .filter(p => p.categories.includes(cat.slug))
-    .slice(0, 4);
+  categoryTop[cat.slug] = (postsByCategory[cat.slug] ?? []).slice(0, 4);
 }
 
 const homeSeoDescription = SITE.desc;
