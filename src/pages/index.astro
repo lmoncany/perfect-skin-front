@@ -9,6 +9,7 @@ import { SITE } from "@/config";
 import { NAV } from "@/constants";
 import { getAllPosts, getCategories } from "@/lib/content";
 import { getPostImage } from "@/lib/post-image";
+import type { Post } from "@/lib/types";
 
 const posts = await getAllPosts();
 const categories = await getCategories();
