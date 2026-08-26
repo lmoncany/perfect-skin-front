@@ -43,11 +43,10 @@ The dev server runs on <http://localhost:4321>. If `WORDPRESS_API_URL` is not se
    # edit .env:
    #   WORDPRESS_API_URL=https://admin.perfect-skin.fr/graphql
    #   REVALIDATE_SECRET=$(openssl rand -hex 32)
-   #   CLOUDFLARE_PAGES_DEPLOY_HOOK_URL=https://api.cloudflare.com/client/v4/workers/builds/deploy_hooks/...
    #   WORDPRESS_BRAND_SOURCE=taxonomy   # optional, when WP exposes a brand taxonomy
    ```
 
-3. Configure the WP webhook to POST to `https://perfect-skin.fr/api/revalidate?secret=<REVALIDATE_SECRET>` on post publish/update. That route validates the secret and triggers your Cloudflare Pages deploy hook.
+3. Configure the WP webhook to POST to `https://perfect-skin.fr/api/revalidate?secret=<REVALIDATE_SECRET>` on post publish/update. That route validates the secret and clears the live content cache.
 
 ## Deploying on Cloudflare Pages
 
@@ -60,17 +59,16 @@ The dev server runs on <http://localhost:4321>. If `WORDPRESS_API_URL` is not se
    - `WORDPRESS_API_URL`
    - `WORDPRESS_APP_PASSWORD` if WordPress is behind Basic Auth
    - `REVALIDATE_SECRET`
-   - `CLOUDFLARE_PAGES_DEPLOY_HOOK_URL`
    - `PUBLIC_GOOGLE_SITE_VERIFICATION` if you have a Search Console tag
 4. Attach `perfect-skin.fr` to the Pages project in Cloudflare DNS and keep `admin.perfect-skin.fr` pointed at WordPress.
 5. Trigger one manual deploy to verify the build before flipping traffic.
 
 ## Architecture highlights
 
-- **Content layer** — `src/lib/content.ts` is the single source of truth for page data. It uses live WPGraphQL in production and keeps mock fixtures only for local development when WordPress is unavailable.
+- **Content layer** — `src/lib/content.ts` is the single source of truth for page data. In production it fetches live WPGraphQL content on demand with a short runtime cache; mock fixtures are only for local development when WordPress is unavailable.
 - **SEO** — each article's `<head>` is driven by Rank Math metadata pulled through GraphQL (`seo` field). Canonical, OG, Twitter, and JSON-LD all match what Rank Math would render on the native WP theme.
 - **Affiliate** — `src/components/AffiliateCTA.astro` is the single CTA component. It adds `rel="sponsored nofollow"` automatically, routes clicks through a first-party `/api/click` 302 redirect for tracking, and displays the legally-required French disclosure. Product comparison tables emit `Product` + `Review` JSON-LD for rich results.
-- **Performance** — Astro ships zero client JS by default. Pagefind provides static search. Cloudflare handles edge delivery and caching.
+- **Performance** — Astro ships zero client JS by default. Search is rendered server-side from live WordPress data, and Cloudflare handles edge delivery plus short-lived caching.
 - **URL structure** — preserves existing WordPress URL shape:
   - Articles at `/{slug}/`
   - Categories at `/categorie/{slug}/`
@@ -99,7 +97,7 @@ src/
 │   ├── tag/[tag]/[...page].astro            # tag archive
 │   ├── marque/[brand].astro                 # brand archive
 │   ├── api/click.ts                         # affiliate click tracker (server)
-│   ├── api/revalidate.ts                    # webhook from WP, triggers Pages rebuild
+│   ├── api/revalidate.ts                    # webhook from WP, clears runtime content cache
 │   ├── rss.xml.ts
 │   ├── robots.txt.ts
 │   └── search.astro
@@ -111,7 +109,7 @@ src/
 ## Cloudflare notes
 
 - `wrangler.toml` is included for Pages deployment and local `wrangler pages dev`.
-- `src/pages/api/revalidate.ts` posts to the Cloudflare deploy hook instead of doing Vercel-style ISR.
+- `src/pages/api/revalidate.ts` clears the runtime content cache after a WordPress publish/update webhook.
 - If you were previously planning Vercel redirects or image optimization, move that logic into Cloudflare Pages and DNS.
 
 ## License

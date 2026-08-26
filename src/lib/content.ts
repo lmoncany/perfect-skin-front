@@ -1,10 +1,9 @@
-// Unified content-access layer with build-time caching.
+// Unified content-access layer with runtime caching.
 //
 // The WordPress server is on shared hosting and can't handle many concurrent
-// GraphQL requests. This module fetches ALL posts once at build start, caches
-// them in memory, and derives category/tag/slug lookups from that cache.
-// This means only ~3 GraphQL requests total (posts, categories, tags) instead
-// of hundreds.
+// GraphQL requests. This module fetches content lazily on demand and keeps a
+// short-lived in-memory cache so live pages can update without waiting for a redeploy.
+// The cache is shared by whatever Cloudflare worker instance serves the request.
 
 import type {
   AuthorArchive,
@@ -308,8 +307,62 @@ function authorsFromPosts(posts: Post[]): AuthorArchive[] {
     .map(({ latest: _latest, ...author }) => author);
 }
 
-// ---------- Build-time cache ----------
-// Fetches data once and reuses across all pages during SSG build.
+const CONTENT_CACHE_TTL_MS = 60_000;
+
+type CacheEntry<T> = {
+  value: T | null;
+  promise: Promise<T> | null;
+  expiresAt: number;
+};
+
+function createCacheEntry<T>(): CacheEntry<T> {
+  return {
+    value: null,
+    promise: null,
+    expiresAt: 0,
+  };
+}
+
+async function readCache<T>(
+  entry: CacheEntry<T>,
+  loader: () => Promise<T>
+): Promise<T> {
+  const now = Date.now();
+  if (entry.value && now < entry.expiresAt) {
+    return entry.value;
+  }
+
+  if (!entry.promise) {
+    entry.promise = loader()
+      .then(value => {
+        entry.value = value;
+        entry.expiresAt = Date.now() + CONTENT_CACHE_TTL_MS;
+        entry.promise = null;
+        return value;
+      })
+      .catch(error => {
+        entry.promise = null;
+        throw error;
+      });
+  }
+
+  return entry.promise;
+}
+
+export function clearContentCaches(): void {
+  for (const cache of [
+    _postsCache,
+    _categoriesCache,
+    _tagsCache,
+    _pagesCache,
+    _brandsCache,
+    _authorsCache,
+  ]) {
+    cache.value = null;
+    cache.promise = null;
+    cache.expiresAt = 0;
+  }
+}
 
 interface ContentNodesResp {
   contentNodes: {
@@ -318,23 +371,17 @@ interface ContentNodesResp {
   };
 }
 
-let _postsCache: Post[] | null = null;
-let _postsPromise: Promise<Post[]> | null = null;
+const _postsCache = createCacheEntry<Post[]>();
 
-let _categoriesCache: Category[] | null = null;
-let _categoriesPromise: Promise<Category[]> | null = null;
+const _categoriesCache = createCacheEntry<Category[]>();
 
-let _tagsCache: Tag[] | null = null;
-let _tagsPromise: Promise<Tag[]> | null = null;
+const _tagsCache = createCacheEntry<Tag[]>();
 
-let _pagesCache: Page[] | null = null;
-let _pagesPromise: Promise<Page[]> | null = null;
+const _pagesCache = createCacheEntry<Page[]>();
 
-let _brandsCache: Brand[] | null = null;
-let _brandsPromise: Promise<Brand[]> | null = null;
+const _brandsCache = createCacheEntry<Brand[]>();
 
-let _authorsCache: AuthorArchive[] | null = null;
-let _authorsPromise: Promise<AuthorArchive[]> | null = null;
+const _authorsCache = createCacheEntry<AuthorArchive[]>();
 
 async function fetchAllPostsFromWP(): Promise<Post[]> {
   const all: WPPostNode[] = [];
@@ -401,10 +448,7 @@ export async function getAllPosts(): Promise<Post[]> {
   if (USE_MOCK_FIXTURES) {
     return [...mockPosts].map(mockToPost).sort(byDateDesc);
   }
-  if (_postsCache) return _postsCache;
-  if (!_postsPromise) _postsPromise = fetchAllPostsFromWP();
-  _postsCache = await _postsPromise;
-  return _postsCache;
+  return readCache(_postsCache, fetchAllPostsFromWP);
 }
 
 export async function getPostBySlug(slug: string): Promise<Post | null> {
@@ -434,18 +478,12 @@ export async function getPostsByAuthor(slug: string): Promise<Post[]> {
 
 export async function getCategories(): Promise<Category[]> {
   if (USE_MOCK_FIXTURES) return mockCategories;
-  if (_categoriesCache) return _categoriesCache;
-  if (!_categoriesPromise) _categoriesPromise = fetchCategoriesFromWP();
-  _categoriesCache = await _categoriesPromise;
-  return _categoriesCache;
+  return readCache(_categoriesCache, fetchCategoriesFromWP);
 }
 
 export async function getTags(): Promise<Tag[]> {
   if (USE_MOCK_FIXTURES) return mockTags;
-  if (_tagsCache) return _tagsCache;
-  if (!_tagsPromise) _tagsPromise = fetchTagsFromWP();
-  _tagsCache = await _tagsPromise;
-  return _tagsCache;
+  return readCache(_tagsCache, fetchTagsFromWP);
 }
 
 export async function getBrands(): Promise<Brand[]> {
@@ -453,46 +491,36 @@ export async function getBrands(): Promise<Brand[]> {
     return brandCatalog.map(brandFromCatalogEntry);
   }
   if (USE_WP_BRAND_TAXONOMY) {
-    if (_brandsCache) return _brandsCache;
-    if (!_brandsPromise) {
-      _brandsPromise = (async () => {
-        const data = await wpFetch<{
-          brands: {
-            nodes: Array<
-              { slug: string; name: string; description?: string | null } | null
-            >;
-          };
-        }>(GET_BRANDS);
-        return (data.brands.nodes ?? [])
-          .filter(
-            (brand): brand is {
-              slug: string;
-              name: string;
-              description?: string | null;
-            } => !!brand?.slug
-          )
-          .map(brand => ({
-            slug: brand.slug,
-            name: brand.name,
-            description: brand.description ?? "",
-          }));
-      })();
-    }
-    _brandsCache = await _brandsPromise;
-    return _brandsCache;
+    return readCache(_brandsCache, async () => {
+      const data = await wpFetch<{
+        brands: {
+          nodes: Array<
+            { slug: string; name: string; description?: string | null } | null
+          >;
+        };
+      }>(GET_BRANDS);
+      return (data.brands.nodes ?? [])
+        .filter(
+          (brand): brand is {
+            slug: string;
+            name: string;
+            description?: string | null;
+          } => !!brand?.slug
+        )
+        .map(brand => ({
+          slug: brand.slug,
+          name: brand.name,
+          description: brand.description ?? "",
+        }));
+    });
   }
-  if (_brandsCache) return _brandsCache;
-  if (!_brandsPromise) {
-    _brandsPromise = (async () => {
-      const all = await getAllPosts();
-      const slugs = brandSlugsFromPosts(all);
-      return brandCatalog
-        .filter(brand => slugs.includes(brand.slug))
-        .map(brandFromCatalogEntry);
-    })();
-  }
-  _brandsCache = await _brandsPromise;
-  return _brandsCache;
+  return readCache(_brandsCache, async () => {
+    const all = await getAllPosts();
+    const slugs = brandSlugsFromPosts(all);
+    return brandCatalog
+      .filter(brand => slugs.includes(brand.slug))
+      .map(brandFromCatalogEntry);
+  });
 }
 
 export async function getCategory(slug: string): Promise<Category | null> {
@@ -543,15 +571,10 @@ export async function getBrand(slug: string): Promise<Brand | null> {
 }
 
 export async function getAuthors(): Promise<AuthorArchive[]> {
-  if (_authorsCache) return _authorsCache;
-  if (!_authorsPromise) {
-    _authorsPromise = (async () => {
-      const posts = await getAllPosts();
-      return authorsFromPosts(posts);
-    })();
-  }
-  _authorsCache = await _authorsPromise;
-  return _authorsCache;
+  return readCache(_authorsCache, async () => {
+    const posts = await getAllPosts();
+    return authorsFromPosts(posts);
+  });
 }
 
 export async function getAuthor(slug: string): Promise<AuthorArchive | null> {
@@ -561,10 +584,7 @@ export async function getAuthor(slug: string): Promise<AuthorArchive | null> {
 
 export async function getAllPages(): Promise<Page[]> {
   if (USE_MOCK_FIXTURES) return mockPages;
-  if (_pagesCache) return _pagesCache;
-  if (!_pagesPromise) _pagesPromise = fetchPagesFromWP();
-  _pagesCache = await _pagesPromise;
-  return _pagesCache;
+  return readCache(_pagesCache, fetchPagesFromWP);
 }
 
 export async function getPageBySlug(slug: string): Promise<Page | null> {

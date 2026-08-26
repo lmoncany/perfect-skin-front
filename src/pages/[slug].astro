@@ -1,68 +1,66 @@
 ---
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
 import ArticleLayout from "@/layouts/ArticleLayout.astro";
 import PageLayout from "@/layouts/PageLayout.astro";
-import {
-  getAllPages,
-  getAllPosts,
-  getRelatedPosts,
-} from "@/lib/content";
-import type { Page, Post } from "@/lib/types";
+import { getPageBySlug, getPostBySlug, getRelatedPosts } from "@/lib/content";
+import { SITE } from "@/config";
 
-type Entry =
-  | { kind: "post"; entry: Post }
-  | { kind: "page"; entry: Page };
+const slug = Astro.params.slug;
 
-export async function getStaticPaths() {
-  // Slugs that live in their own .astro files (don't generate them here).
-  // Declared inside getStaticPaths because Astro hoists this function to
-  // its own scope; top-level consts in the frontmatter aren't visible here.
-  const RESERVED_SLUGS = new Set([
-    "a-propos",
-    "contact",
-    "auteur",
-    "author",
-    "mentions-legales",
-    "politique-confidentialite",
-    "search",
-    "feed",
-    "api",
-    "llms.txt",
-    "llms-full.txt",
-    "rss.xml",
-    "robots.txt",
-  ]);
-
-  const [posts, pages] = await Promise.all([getAllPosts(), getAllPages()]);
-
-  const paths = [];
-  for (const post of posts) {
-    if (RESERVED_SLUGS.has(post.slug)) continue;
-    paths.push({
-      params: { slug: post.slug },
-      props: { kind: "post", entry: post } satisfies Entry,
-    });
-  }
-  const usedSlugs = new Set(paths.map(p => p.params.slug));
-  for (const page of pages) {
-    if (RESERVED_SLUGS.has(page.slug)) continue;
-    if (usedSlugs.has(page.slug)) continue; // post wins if both exist
-    paths.push({
-      params: { slug: page.slug },
-      props: { kind: "page", entry: page } satisfies Entry,
-    });
-  }
-  return paths;
+if (!slug) {
+  Astro.response.status = 404;
 }
 
-const props = Astro.props as Entry;
-const related =
-  props.kind === "post" ? await getRelatedPosts(props.entry, 4) : [];
+const [post, page] = slug
+  ? await Promise.all([getPostBySlug(slug), getPageBySlug(slug)])
+  : [null, null];
+const entry = post ?? page;
+
+if (!entry) {
+  Astro.response.status = 404;
+}
+
+const related = post ? await getRelatedPosts(post, 4) : [];
 ---
 
 {
-  props.kind === "post" ? (
-    <ArticleLayout post={props.entry} related={related} />
+  entry ? (
+    post ? (
+      <ArticleLayout post={post} related={related} />
+    ) : page ? (
+      <PageLayout page={page} />
+    ) : (
+      <Layout
+        title={`404 — ${SITE.title}`}
+        description="La page demandée est introuvable."
+      >
+        <Header />
+        <main id="main-content" class="app-layout py-24">
+          <p class="kicker mb-3">404</p>
+          <h1 class="display-lg mb-4">Page introuvable</h1>
+          <p class="max-w-xl text-base sm:text-lg text-foreground/50 leading-relaxed font-light">
+            Le contenu demandé n’existe pas ou n’est plus disponible.
+          </p>
+        </main>
+        <Footer />
+      </Layout>
+    )
   ) : (
-    <PageLayout page={props.entry} />
+    <Layout
+      title={`404 — ${SITE.title}`}
+      description="La page demandée est introuvable."
+    >
+      <Header />
+      <main id="main-content" class="app-layout py-24">
+        <p class="kicker mb-3">404</p>
+        <h1 class="display-lg mb-4">Page introuvable</h1>
+        <p class="max-w-xl text-base sm:text-lg text-foreground/50 leading-relaxed font-light">
+          Le contenu demandé n’existe pas ou n’est plus disponible.
+        </p>
+      </main>
+      <Footer />
+    </Layout>
   )
 }

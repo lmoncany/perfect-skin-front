@@ -1,24 +1,19 @@
 import { defineConfig, envField, fontProviders } from "astro/config";
 import tailwindcss from "@tailwindcss/vite";
-import sitemap from "@astrojs/sitemap";
 import cloudflare from "@astrojs/cloudflare";
 import { SITE } from "./src/config";
 
 // https://astro.build/config
 export default defineConfig({
   site: SITE.website,
+  output: "server",
   trailingSlash: "always",
   adapter: cloudflare({
     platformProxy: {
       enabled: true,
     },
   }),
-  integrations: [
-    sitemap({
-      filter: page => !page.endsWith("/api/click"),
-      i18n: undefined,
-    }),
-  ],
+  integrations: [],
   vite: {
     // eslint-disable-next-line
     // @ts-ignore
@@ -50,11 +45,6 @@ export default defineConfig({
         optional: true,
       }),
       REVALIDATE_SECRET: envField.string({
-        access: "secret",
-        context: "server",
-        optional: true,
-      }),
-      CLOUDFLARE_PAGES_DEPLOY_HOOK_URL: envField.string({
         access: "secret",
         context: "server",
         optional: true,

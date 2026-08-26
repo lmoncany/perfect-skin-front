@@ -1,13 +1,72 @@
 ---
-import "@pagefind/default-ui/css/ui.css";
 import Layout from "@/layouts/Layout.astro";
 import Header from "@/components/Header.astro";
 import Footer from "@/components/Footer.astro";
 import Breadcrumb from "@/components/Breadcrumb.astro";
+import Card from "@/components/Card.astro";
 import { SITE } from "@/config";
+import { getAllPosts } from "@/lib/content";
+import type { Post } from "@/lib/types";
+
+function normalizeText(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/['’`]/g, "")
+    .replace(/[^a-z0-9]+/gi, " ")
+    .toLowerCase()
+    .trim();
+}
+
+function scorePost(post: Post, query: string): number {
+  const haystack = normalizeText(
+    [
+      post.title,
+      post.excerpt,
+      post.content.replace(/<[^>]*>/g, " "),
+      post.author.name,
+      ...(post.categories ?? []),
+      ...(post.tags ?? []),
+      ...(post.brands ?? []),
+    ].join(" ")
+  );
+
+  let score = 0;
+  const tokens = query.split(/\s+/).filter(Boolean);
+  for (const token of tokens) {
+    if (haystack.includes(token)) score += 1;
+    if (normalizeText(post.title).includes(token)) score += 3;
+    if (normalizeText(post.excerpt).includes(token)) score += 2;
+  }
+  return score;
+}
+
+const rawQuery = Astro.url.searchParams.get("q")?.trim() ?? "";
+const query = rawQuery.replace(/\s+/g, " ");
+const allPosts = await getAllPosts();
+
+const results =
+  query.length > 0
+    ? allPosts
+        .map(post => ({ post, score: scorePost(post, query.toLowerCase()) }))
+        .filter(result => result.score > 0)
+        .sort(
+          (a, b) =>
+            b.score - a.score ||
+            new Date(b.post.date).getTime() - new Date(a.post.date).getTime()
+        )
+        .map(result => result.post)
+    : allPosts.slice(0, 12);
+
+const title = query
+  ? `Recherche: ${query} — ${SITE.title}`
+  : `Recherche — ${SITE.title}`;
+const description = query
+  ? `Résultats de recherche pour « ${query} » sur ${SITE.title}.`
+  : "Parcourez tous nos guides, tests et comparatifs beauté.";
 ---
 
-<Layout title={`Recherche — ${SITE.title}`}>
+<Layout title={title} description={description}>
   <Header />
   <Breadcrumb />
   <main id="main-content" class="app-layout pb-12">
@@ -15,89 +74,47 @@ import { SITE } from "@/config";
     <p class="mt-2 text-foreground/50 font-light">
       Parcourez tous nos guides, tests et comparatifs beauté.
     </p>
-    <div id="pagefind-search" transition:persist class="mt-6"></div>
+
+    <form method="get" class="mt-6 flex flex-col gap-3 sm:flex-row">
+      <input
+        type="search"
+        name="q"
+        value={query}
+        placeholder="Rechercher un article…"
+        class="w-full rounded border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-accent"
+      />
+      <button
+        type="submit"
+        class="inline-flex items-center justify-center rounded bg-accent px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-accent/90"
+      >
+        Rechercher
+      </button>
+    </form>
+
+    <div class="mt-8 flex items-center justify-between gap-4">
+      <p class="text-sm text-foreground/60">
+        {query
+          ? `${results.length} résultat${results.length > 1 ? "s" : ""} pour « ${query} »`
+          : "Articles récents"}
+      </p>
+      {query && (
+        <a href="/search/" class="text-sm text-accent hover:underline">
+          Réinitialiser
+        </a>
+      )}
+    </div>
+
+    {results.length > 0 ? (
+      <div class="mt-8 grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
+        {results.map(post => (
+          <Card post={post} variant="h3" />
+        ))}
+      </div>
+    ) : (
+      <p class="py-20 text-center text-foreground/40 text-base font-light">
+        Aucun résultat pour cette recherche.
+      </p>
+    )}
   </main>
   <Footer />
 </Layout>
-
-<script>
-  function initSearch() {
-    const pageFindSearch: HTMLElement | null =
-      document.querySelector("#pagefind-search");
-    if (!pageFindSearch) return;
-
-    const params = new URLSearchParams(window.location.search);
-    const onIdle = window.requestIdleCallback || (cb => setTimeout(cb, 1));
-
-    onIdle(async () => {
-      // @ts-expect-error — Missing types for @pagefind/default-ui package.
-      const { PagefindUI } = await import("@pagefind/default-ui");
-
-      if (import.meta.env.DEV) {
-        pageFindSearch.innerHTML = `
-          <div class="bg-muted/75 rounded p-4 space-y-2">
-            <p><strong>Mode dev —</strong> exécutez <code>pnpm build</code> une fois pour générer l'index Pagefind.</p>
-          </div>`;
-        return;
-      }
-
-      const search = new PagefindUI({
-        element: "#pagefind-search",
-        showImages: false,
-        showSubResults: true,
-        translations: {
-          placeholder: "Rechercher un article…",
-          clear_search: "Effacer",
-          load_more: "Charger plus",
-          search_label: "Rechercher",
-          filters_label: "Filtres",
-          zero_results: "Aucun résultat pour [SEARCH_TERM]",
-          many_results: "[COUNT] résultats pour [SEARCH_TERM]",
-          one_result: "1 résultat pour [SEARCH_TERM]",
-          alt_search:
-            "Aucun résultat pour [SEARCH_TERM]. Essayez [DIFFERENT_TERM]",
-          search_suggestion:
-            "Aucun résultat pour [SEARCH_TERM]. Essayez un autre terme.",
-          searching: "Recherche pour [SEARCH_TERM]…",
-        },
-        processTerm: function (term: string) {
-          params.set("q", term);
-          history.replaceState(history.state, "", "?" + params.toString());
-          return term;
-        },
-      });
-
-      const query = params.get("q");
-      if (query) search.triggerSearch(query);
-    });
-  }
-
-  document.addEventListener("astro:after-swap", () => {
-    const el = document.querySelector("#pagefind-search");
-    if (el && el.querySelector("form")) return;
-    initSearch();
-  });
-  initSearch();
-</script>
-
-<style is:global>
-  #pagefind-search {
-    --pagefind-ui-font: var(--font-app);
-    --pagefind-ui-text: var(--foreground);
-    --pagefind-ui-background: var(--background);
-    --pagefind-ui-border: var(--border);
-    --pagefind-ui-primary: var(--accent);
-    --pagefind-ui-tag: var(--background);
-    --pagefind-ui-border-radius: 0.5rem;
-    --pagefind-ui-border-width: 1px;
-    --pagefind-ui-image-border-radius: 8px;
-    --pagefind-ui-image-box-ratio: 3 / 2;
-    input {
-      font-weight: 400;
-      border: 1px solid var(--border);
-    }
-    input:focus-visible {
-      outline: 1px solid var(--accent);
-    }
-  }
-</style>

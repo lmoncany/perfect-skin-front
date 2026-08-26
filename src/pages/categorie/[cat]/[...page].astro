@@ -1,35 +1,65 @@
 ---
-import type { GetStaticPaths } from "astro";
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
 import ArchiveLayout from "@/layouts/ArchiveLayout.astro";
-import { getCategories, getPostsByCategory } from "@/lib/content";
 import { SITE } from "@/config";
+import { getCategory, getPostsByCategory } from "@/lib/content";
+import { buildRuntimePage, parsePageNumber } from "@/lib/runtime-pagination";
 
-export const getStaticPaths = (async ({ paginate }) => {
-  const categories = await getCategories();
-  const results = [];
-  for (const cat of categories) {
-    const posts = await getPostsByCategory(cat.slug);
-    const paths = paginate(posts, {
-      params: { cat: cat.slug },
-      pageSize: SITE.postPerPage,
-      props: { categoryName: cat.name, categoryDesc: cat.description },
-    });
-    results.push(...paths);
-  }
-  return results;
-}) satisfies GetStaticPaths;
+const cat = Astro.params.cat;
+const pageParam = Astro.params.page;
 
-const { page, categoryName, categoryDesc } = Astro.props;
+if (!cat) {
+  Astro.response.status = 404;
+}
 
-const title = `${categoryName} — ${SITE.title}`;
-const description =
-  categoryDesc || `Articles beauté et soins de la catégorie ${categoryName}.`;
+const category = cat ? await getCategory(cat) : null;
+const currentPage = parsePageNumber(pageParam);
+
+if (!category) {
+  Astro.response.status = 404;
+}
+
+const posts = category ? await getPostsByCategory(category.slug) : [];
+const page = buildRuntimePage(
+  posts,
+  currentPage,
+  SITE.postPerPage,
+  `/categorie/${category?.slug ?? cat}/`
+);
+const invalidPage = !!category && currentPage > page.lastPage;
+
+if (invalidPage) {
+  Astro.response.status = 404;
+}
+
+const title = category ? `${category.name} — ${SITE.title}` : `404 — ${SITE.title}`;
+const description = category
+  ? category.description || `Articles beauté et soins de la catégorie ${category.name}.`
+  : "Catégorie introuvable.";
 ---
 
-<ArchiveLayout
-  title={title}
-  description={description}
-  pageTitle={categoryName}
-  intro={categoryDesc}
-  page={page}
-/>
+{
+  category && !invalidPage ? (
+    <ArchiveLayout
+      title={title}
+      description={description}
+      pageTitle={category.name}
+      intro={category.description}
+      page={page}
+    />
+  ) : (
+    <Layout title={title} description={description}>
+      <Header />
+      <main id="main-content" class="app-layout py-24">
+        <p class="kicker mb-3">404</p>
+        <h1 class="display-lg mb-4">Catégorie introuvable</h1>
+        <p class="max-w-xl text-base sm:text-lg text-foreground/50 leading-relaxed font-light">
+          La catégorie demandée n’existe pas ou n’est plus disponible.
+        </p>
+      </main>
+      <Footer />
+    </Layout>
+  )
+}

@@ -1,37 +1,63 @@
 ---
-import type { GetStaticPaths } from "astro";
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
 import ArchiveLayout from "@/layouts/ArchiveLayout.astro";
-import { getBrands, getPostsByBrand } from "@/lib/content";
 import { SITE } from "@/config";
+import { getBrand, getPostsByBrand } from "@/lib/content";
+import { buildRuntimePage, parsePageNumber } from "@/lib/runtime-pagination";
 
-export const getStaticPaths = (async ({ paginate }) => {
-  const brands = await getBrands();
-  const results = [];
-  for (const b of brands) {
-    const posts = await getPostsByBrand(b.slug);
-    if (posts.length === 0) continue;
-    const paths = paginate(posts, {
-      params: { brand: b.slug },
-      pageSize: SITE.postPerPage,
-      props: { brandName: b.name, brandDesc: b.description },
-    });
-    results.push(...paths);
-  }
-  return results;
-}) satisfies GetStaticPaths;
+const brandSlug = Astro.params.brand;
+const pageParam = Astro.params.page;
 
-const { page, brandName, brandDesc } = Astro.props;
+if (!brandSlug) {
+  Astro.response.status = 404;
+}
 
-const title = `${brandName} — avis, tests et comparatifs | ${SITE.title}`;
-const description =
-  brandDesc ||
-  `Tous nos articles sur la marque ${brandName} — avis, tests et comparatifs.`;
+const brand = brandSlug ? await getBrand(brandSlug) : null;
+const currentPage = parsePageNumber(pageParam);
+
+if (!brand) {
+  Astro.response.status = 404;
+}
+
+const posts = brand ? await getPostsByBrand(brand.slug) : [];
+const page = buildRuntimePage(posts, currentPage, SITE.postPerPage, `/marque/${brand?.slug ?? brandSlug}/`);
+const invalidPage = !!brand && currentPage > page.lastPage;
+
+if (invalidPage) {
+  Astro.response.status = 404;
+}
+
+const title = brand
+  ? `${brand.name} — avis, tests et comparatifs | ${SITE.title}`
+  : `404 — ${SITE.title}`;
+const description = brand
+  ? brand.description ||
+    `Tous nos articles sur la marque ${brand.name} — avis, tests et comparatifs.`
+  : "Marque introuvable.";
 ---
 
-<ArchiveLayout
-  title={title}
-  description={description}
-  pageTitle={brandName}
-  intro={brandDesc}
-  page={page}
-/>
+{
+  brand && !invalidPage ? (
+    <ArchiveLayout
+      title={title}
+      description={description}
+      pageTitle={brand.name}
+      intro={brand.description}
+      page={page}
+    />
+  ) : (
+    <Layout title={title} description={description}>
+      <Header />
+      <main id="main-content" class="app-layout py-24">
+        <p class="kicker mb-3">404</p>
+        <h1 class="display-lg mb-4">Marque introuvable</h1>
+        <p class="max-w-xl text-base sm:text-lg text-foreground/50 leading-relaxed font-light">
+          La marque demandée n’existe pas ou n’est plus disponible.
+        </p>
+      </main>
+      <Footer />
+    </Layout>
+  )
+}

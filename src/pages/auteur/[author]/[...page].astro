@@ -1,29 +1,56 @@
 ---
-import type { GetStaticPaths } from "astro";
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
 import AuthorLayout from "@/layouts/AuthorLayout.astro";
-import { getAuthors, getPostsByAuthor } from "@/lib/content";
 import { SITE } from "@/config";
+import { getAuthor, getPostsByAuthor } from "@/lib/content";
+import { buildRuntimePage, parsePageNumber } from "@/lib/runtime-pagination";
 
-export const getStaticPaths = (async ({ paginate }) => {
-  const authors = await getAuthors();
-  const results = [];
+const authorSlug = Astro.params.author;
+const pageParam = Astro.params.page;
 
-  for (const author of authors) {
-    const posts = await getPostsByAuthor(author.slug);
-    if (posts.length === 0) continue;
+if (!authorSlug) {
+  Astro.response.status = 404;
+}
 
-    const paths = paginate(posts, {
-      params: { author: author.slug },
-      pageSize: SITE.postPerPage,
-      props: { author },
-    });
-    results.push(...paths);
-  }
+const author = authorSlug ? await getAuthor(authorSlug) : null;
+const currentPage = parsePageNumber(pageParam);
 
-  return results;
-}) satisfies GetStaticPaths;
+if (!author) {
+  Astro.response.status = 404;
+}
 
-const { page, author } = Astro.props;
+const posts = author ? await getPostsByAuthor(author.slug) : [];
+const page = buildRuntimePage(posts, currentPage, SITE.postPerPage, `/auteur/${author?.slug ?? authorSlug}/`);
+const invalidPage = !!author && currentPage > page.lastPage;
+
+if (invalidPage) {
+  Astro.response.status = 404;
+}
+
+const title = author ? `${author.name} — ${SITE.title}` : `404 — ${SITE.title}`;
+const description = author
+  ? author.description
+    ? author.description
+    : `Tous les articles signés par ${author.name} sur ${SITE.title}.`
+  : "Auteur introuvable.";
 ---
 
-<AuthorLayout author={author} page={page} />
+{
+  author && !invalidPage ? (
+    <AuthorLayout author={author} page={page} />
+  ) : (
+    <Layout title={title} description={description}>
+      <Header />
+      <main id="main-content" class="app-layout py-24">
+        <p class="kicker mb-3">404</p>
+        <h1 class="display-lg mb-4">Auteur introuvable</h1>
+        <p class="max-w-xl text-base sm:text-lg text-foreground/50 leading-relaxed font-light">
+          L’auteur demandé n’existe pas ou n’est plus disponible.
+        </p>
+      </main>
+      <Footer />
+    </Layout>
+  )
+}

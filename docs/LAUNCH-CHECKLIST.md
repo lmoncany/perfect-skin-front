@@ -12,7 +12,6 @@ This is the practical launch checklist for running `perfect-skin.fr` as a Cloudf
    - `WORDPRESS_API_URL`
    - `WORDPRESS_APP_PASSWORD` if WordPress is protected
    - `REVALIDATE_SECRET`
-   - `CLOUDFLARE_PAGES_DEPLOY_HOOK_URL`
    - `PUBLIC_GOOGLE_SITE_VERIFICATION` if applicable
    - `WORDPRESS_BRAND_SOURCE=taxonomy` only after WordPress exposes a brand taxonomy
 6. Keep the frontend project on Pages and move the WordPress admin to `admin.perfect-skin.fr`.
@@ -29,7 +28,7 @@ This is the practical launch checklist for running `perfect-skin.fr` as a Cloudf
 2. Make sure the GraphQL endpoint is reachable at the admin host, for example `https://admin.perfect-skin.fr/graphql`.
 3. Configure the WordPress webhook to POST to:
    - `https://perfect-skin.fr/api/revalidate?secret=<REVALIDATE_SECRET>`
-4. Confirm the deploy hook URL stored in `CLOUDFLARE_PAGES_DEPLOY_HOOK_URL` is valid and triggers a Pages rebuild.
+4. Confirm the webhook returns `200` and the frontend cache refreshes within the runtime TTL.
 
 ## 3. SEO cutover checklist
 
@@ -52,6 +51,6 @@ This is the practical launch checklist for running `perfect-skin.fr` as a Cloudf
 
 1. Open the homepage and a few article pages on mobile and desktop.
 2. Check the sitemap and robots file live.
-3. Confirm a WordPress publish event triggers a frontend rebuild.
+3. Confirm a WordPress publish event updates the frontend without waiting for a redeploy.
 4. Confirm affiliate click tracking still returns a 302 to the merchant.
 5. Monitor Search Console for coverage or canonical errors.
