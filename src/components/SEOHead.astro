@@ -51,7 +51,7 @@ const serializedJsonLd = combinedJsonLd
   .map(block => (typeof block === "string" ? block : JSON.stringify(block)))
   .filter(Boolean);
 const googleSiteVerification =
-  import.meta.env.PUBLIC_GOOGLE_SITE_VERIFICATION ?? SITE.googleSiteVerification;
+  import.meta.env.PUBLIC_GOOGLE_SITE_VERIFICATION || SITE.googleSiteVerification;
 ---
 
 <title>{title}</title>
