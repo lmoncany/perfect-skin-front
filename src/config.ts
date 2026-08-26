@@ -5,6 +5,7 @@ export const SITE = {
   desc: "Le site de référence dans les soins cosmétiques — guides, avis et comparatifs pour votre rituel beauté.",
   title: "Perfect Skin",
   tagline: "Le site de référence dans les soins cosmétiques",
+  googleSiteVerification: "wEYSgys9fK78byKHxmd_94fGxf6MaOv51q8nqHYZxgU",
   ogImage: "og-default.jpg",
   lightAndDarkMode: true,
   postPerIndex: 8,
